@@ -102,11 +102,11 @@
         
         <!-- 🆕 金幣提示 - 灰底點擊顯示 -->
         <div id="coinHint" class="coin-hint" onclick="toggleCoinHint()">
-            💰 金幣目前還沒用，因為我還沒做完 :)
+            💰 金幣沒有用，因為我沒做完 :)
         </div>
         
         <div style="font-size: 1.1rem; opacity: 0.7; margin-top: 20px;">
-            🎮 用小遊戲賺金幣，等商店上線就能買超強裝備！
+            🎮 沒東西別看
         </div>
     </div>
 
@@ -128,10 +128,10 @@
             const hint = document.getElementById('coinHint');
             if (hint.classList.contains('revealed')) {
                 hint.classList.remove('revealed');
-                hint.innerHTML = '💰 金幣目前還沒用，因為我還沒做完 <span style="color:#f39c12;">😉</span>';
+                hint.innerHTML = '💰 金幣沒有用，因為我沒做 <span style="color:#f39c12;">😉</span>';
             } else {
                 hint.classList.add('revealed');
-                hint.innerHTML = '💰 金幣即將上線！<br><span style="font-size:1.1rem;">小遊戲金幣將能在主遊戲商店買超強裝備！🔥</span>';
+                hint.innerHTML = '💰 你以為這裡有東西<br><span style="font-size:1.1rem;">並沒有🔥</span>';
             }
         }
 
@@ -202,3 +202,4 @@
     </script>
 </body>
 </html>
+
