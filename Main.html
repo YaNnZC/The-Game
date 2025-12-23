@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生存者：roguelike  生存(商店系統修正)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif; user-select: none; }
+        canvas { display: block; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        #top-bar { position: absolute; top: 0; left: 0; width: 100%; padding: 15px 25px; display: flex; justify-content: space-between; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); text-shadow: 2px 2px 0 #000; z-index: 10; font-size: 20px; color: white; font-weight: bold; box-sizing: border-box; }
+        #xp-bar-bg { position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: #222; z-index: 11; }
+        #xp-bar-fill { width: 0%; height: 100%; background: #3498db; box-shadow: 0 0 10px #3498db; transition: width 0.1s linear; }
+        #inventory-bar { position: absolute; top: 60px; left: 20px; display: flex; flex-direction: column; gap: 8px; }
+        .inv-row { display: flex; gap: 6px; }
+        .inv-slot { width: 40px; height: 40px; background: rgba(0,0,0,0.6); border: 2px solid #555; display: flex; align-items: center; justify-content: center; position: relative; border-radius: 4px; }
+        .inv-lvl { position: absolute; bottom: 2px; right: 2px; font-size: 12px; color: #f1c40f; font-weight: bold; text-shadow: 1px 1px 0 #000; }
+        
+        /* Overlay Styles */
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; pointer-events: auto; backdrop-filter: blur(5px); }
+        .hidden { display: none !important; }
+        
+        /* Card Styles */
+        .card-container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; max-width: 1200px; }
+        .card { width: 280px; height: 420px; background: #2c3e50; border: 4px solid #7f8c8d; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: 0.2s; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .card:hover { transform: translateY(-10px) scale(1.05); border-color: #f1c40f; background: #34495e; }
+        .card-header { font-size: 14px; font-weight: bold; margin-bottom: 5px; width: 100%; display: flex; justify-content: space-between; }
+        .card-title { font-size: 26px; font-weight: bold; color: #fff; text-align: center; margin-bottom: 8px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .card-desc { font-size: 15px; color: #bdc3c7; text-align: center; line-height: 1.4; flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 10px 0; }
+        
+        /* Recipe Styles Enhanced */
+        .card-recipe { background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; width: 100%; font-size: 14px; margin-top: 10px; border: 1px dashed #7f8c8d; }
+        .recipe-title { color: #f39c12; font-weight: bold; margin-bottom: 6px; display: block; text-align: center; font-size: 16px;}
+        .recipe-detail { color: #ccc; display: flex; justify-content: center; align-items: center; gap: 5px; flex-wrap: wrap; }
+        .owned-tag { color: #2ecc71; font-weight: bold; font-size: 12px; margin-left: 4px; }
+        
+        /* Buttons */
+        .btn { padding: 15px 50px; font-size: 24px; font-weight: bold; color: white; background: #e67e22; border: none; border-radius: 50px; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(230, 126, 34, 0.4); margin-top: 20px; }
+        .btn:hover { background: #d35400; transform: scale(1.05); }
+        .btn-small { padding: 10px 20px; font-size: 18px; margin: 10px; }
+        .btn-reroll { background: #8e44ad; font-size: 18px; padding: 10px 30px; box-shadow: 0 5px 15px rgba(142, 68, 173, 0.4); }
+        .btn-reroll:hover { background: #6c3483; }
+        .btn-reroll:disabled { background: #555; cursor: not-allowed; opacity: 0.7; box-shadow: none; }
+
+        .notification { position: absolute; top: 20%; width: 100%; text-align: center; font-size: 40px; font-weight: bold; color: #e74c3c; text-shadow: 0 0 20px red; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+        
+        /* Buff Status */
+        #buff-bar { position: absolute; top: 120px; left: 20px; display: flex; flex-direction: column; gap: 5px; color: #00ff00; font-weight: bold; font-size: 16px; text-shadow: 1px 1px 0 #000; }
+        .buff-item { animation: pulse 1s infinite alternate; }
+        @keyframes pulse { from { opacity: 0.8; } to { opacity: 1; text-shadow: 0 0 10px #00ff00; } }
+
+        /* Shop Styles */
+        #shop-screen { overflow-y: auto; padding: 40px 0; }
+        .shop-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; max-width: 1200px; width: 90%; }
+        .shop-item { background: #34495e; border: 2px solid #7f8c8d; border-radius: 8px; padding: 15px; text-align: center; transition: 0.2s; position: relative; }
+        .shop-item:hover { border-color: #f1c40f; background: #2c3e50; }
+        .shop-name { font-size: 20px; font-weight: bold; color: #f1c40f; margin-bottom: 10px; }
+        .shop-desc { font-size: 14px; color: #bdc3c7; margin-bottom: 15px; height: 40px; display: flex; align-items: center; justify-content: center;}
+        .shop-cost { font-size: 18px; color: gold; font-weight: bold; margin-bottom: 10px; }
+        .shop-lvl { font-size: 14px; color: #fff; position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 4px; }
+        .shop-btn { width: 100%; padding: 8px; background: #27ae60; border: none; color: white; font-weight: bold; cursor: pointer; border-radius: 4px; }
+        .shop-btn:hover { background: #2ecc71; }
+        .shop-btn:disabled { background: #7f8c8d; cursor: not-allowed; }
+        #gold-display { position: absolute; top: 20px; right: 40px; font-size: 32px; color: gold; font-weight: bold; display: flex; align-items: center; gap: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        .gold-icon { width: 30px; height: 30px; background: gold; border-radius: 50%; border: 3px solid #f39c12; display: inline-block; }
+    </style>
+</head>
+<body>
+    <div id="xp-bar-bg"><div id="xp-bar-fill"></div></div>
+    <canvas id="bgCanvas" style="position: absolute; z-index: -1;"></canvas>
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui-layer">
+        <div id="top-bar">
+            <div>LV <span id="lvl-txt" style="color:#f1c40f">1</span></div>
+            <div id="time-txt">00:00</div>
+            <div>HP <span id="hp-txt" style="color:#e74c3c">100</span></div>
+            <div>KILL <span id="kill-txt">0</span></div>
+        </div>
+        <div id="inventory-bar">
+            <div class="inv-row" id="weapon-slots"></div>
+            <div class="inv-row" id="passive-slots"></div>
+        </div>
+        <div id="buff-bar"></div>
+        <div id="wave-notify" class="notification"></div>
+        <!-- In-game Gold Display -->
+        <div style="position: absolute; top: 60px; right: 25px; color: gold; font-weight: bold; font-size: 24px; text-shadow: 1px 1px 0 #000;">
+            $ <span id="run-gold-txt">0</span>
+        </div>
+    </div>
+    
+    <div id="start-screen" class="overlay">
+        <h1 style="font-size: 60px; color: #f1c40f; margin-bottom: 20px; text-shadow: 0 0 30px black;">生存者：roguelike 生存</h1>
+        <p style="color: #ccc; margin-bottom: 40px; font-size: 18px;">
+            ✦ 場景障礙 ✦ 超級經驗 ✦ 金幣商店 ✦ 多重寶箱<br>
+            <span style="font-size: 14px; color: #7f8c8d;">蒐集金幣，強化自身！注意藍色超級經驗值！</span>
+        </p>
+        <div>
+            <button class="btn" onclick="window.Game.init()">開始冒險</button>
+            <button class="btn" style="background: #2980b9;" onclick="window.Shop.open()">天賦商店</button>
+        </div>
+    </div>
+
+    <div id="shop-screen" class="overlay hidden">
+        <h1 style="color:#f1c40f; margin-bottom: 20px;">天賦商店</h1>
+        <div id="gold-display"><div class="gold-icon"></div> <span id="shop-gold-txt">0</span></div>
+        <div class="shop-grid" id="shop-container"></div>
+        <button class="btn" style="margin-top: 30px;" onclick="window.Shop.close()">返回主選單</button>
+    </div>
+
+    <div id="levelup-screen" class="overlay hidden">
+        <h1 style="color:#f1c40f; text-shadow: 0 0 20px #f1c40f;">LEVEL UP!</h1>
+        <div class="card-container" id="levelup-cards"></div>
+        <button id="btn-reroll" class="btn btn-reroll" onclick="window.Game.doReroll()">刷新選項 (5)</button>
+    </div>
+
+    <div id="chest-screen" class="overlay hidden">
+        <h1 id="chest-title" style="color:#f39c12; font-size: 50px;">獲得寶藏</h1>
+        <div id="chest-content" style="text-align: center; margin: 30px; display: flex; justify-content: center; flex-wrap: wrap; gap: 15px;"></div>
+        <button class="btn" onclick="window.UI.closeChest()">收下</button>
+    </div>
+
+    <div id="gameover-screen" class="overlay hidden">
+        <h1 style="color:#c0392b; font-size: 80px;">冒險結束</h1>
+        <div id="final-stats" style="color: white; font-size: 24px; margin: 20px; text-align: center; line-height: 1.6;"></div>
+        <button class="btn" onclick="location.reload()">前往商店</button>
+    </div>
+
+    <script>
+    (function() {
+
+        // --- 存檔與商店系統 ---
+        const SaveSystem = {
+            data: {
+                gold: 0,
+                upgrades: {} // { id: level }
+            },
+            load: function() {
+                const s = localStorage.getItem('survivor_save_v1');
+                if(s) this.data = JSON.parse(s);
+                // 確保所有升級項目都有初始值
+                Shop.items.forEach(i => { if(this.data.upgrades[i.id] === undefined) this.data.upgrades[i.id] = 0; });
+            },
+            save: function() {
+                localStorage.setItem('survivor_save_v1', JSON.stringify(this.data));
+            },
+            addGold: function(amount) {
+                this.data.gold += amount;
+                this.save();
+            }
+        };
+
+        const Shop = {
+            items: [
+                { id: 'might', name: '泰坦神力', desc: '造成的傷害提升 10%', cost: 100, max: 10, stat: 'might', val: 0.1 },
+                { id: 'armor', name: '振金護甲', desc: '受到的傷害減少 1', cost: 150, max: 5, stat: 'armor', val: 1 },
+                { id: 'maxHp', name: '巨人之血', desc: '最大生命值提升 10%', cost: 100, max: 10, stat: 'maxHp', val: 0.1 },
+                { id: 'recovery', name: '再生因子', desc: '每秒生命恢復 +0.2', cost: 120, max: 10, stat: 'recovery', val: 0.2 },
+                { id: 'cooldown', name: '思維加速', desc: '冷卻時間減少 2.5%', cost: 200, max: 10, stat: 'cooldown', val: 0.025 },
+                { id: 'area', name: '空間擴展', desc: '攻擊範圍提升 10%', cost: 100, max: 10, stat: 'area', val: 0.1 },
+                { id: 'speed', name: '彈道學', desc: '投射物速度提升 10%', cost: 80, max: 10, stat: 'speed', val: 0.1 },
+                { id: 'duration', name: '時光停滯', desc: '技能持續時間提升 10%', cost: 80, max: 10, stat: 'duration', val: 0.1 },
+                { id: 'amount', name: '多重施法', desc: '投射物數量 +1', cost: 1000, max: 2, stat: 'amount', val: 1 },
+                { id: 'moveSpeed', name: '神速之靴', desc: '移動速度提升 5%', cost: 100, max: 10, stat: 'moveSpeed', val: 12 }, // 12 is 5% of 240
+                { id: 'magnet', name: '磁力手套', desc: '拾取範圍提升 25%', cost: 60, max: 10, stat: 'magnet', val: 0.25 },
+                { id: 'greed', name: '貪婪契約', desc: '金幣獲取量提升 10%', cost: 150, max: 10, stat: 'greed', val: 0.1 }
+            ],
+            open: function() {
+                SaveSystem.load();
+                document.getElementById('start-screen').classList.add('hidden');
+                document.getElementById('shop-screen').classList.remove('hidden');
+                this.render();
+            },
+            close: function() {
+                document.getElementById('shop-screen').classList.add('hidden');
+                document.getElementById('start-screen').classList.remove('hidden');
+            },
+            render: function() {
+                document.getElementById('shop-gold-txt').innerText = SaveSystem.data.gold;
+                const container = document.getElementById('shop-container');
+                container.innerHTML = '';
+                this.items.forEach(item => {
+                    let lvl = SaveSystem.data.upgrades[item.id] || 0;
+                    let cost = Math.floor(item.cost * Math.pow(1.5, lvl));
+                    let isMax = lvl >= item.max;
+                    
+                    let div = document.createElement('div');
+                    div.className = 'shop-item';
+                    div.innerHTML = `
+                        <div class="shop-lvl">Lv ${lvl} / ${item.max}</div>
+                        <div class="shop-name">${item.name}</div>
+                        <div class="shop-desc">${item.desc}</div>
+                        <div class="shop-cost">${isMax ? 'MAX' : '$ ' + cost}</div>
+                        <button class="shop-btn" ${isMax || SaveSystem.data.gold < cost ? 'disabled' : ''}>購買</button>
+                    `;
+                    div.querySelector('button').onclick = () => {
+                        if (SaveSystem.data.gold >= cost && !isMax) {
+                            SaveSystem.data.gold -= cost;
+                            SaveSystem.data.upgrades[item.id] = lvl + 1;
+                            SaveSystem.save();
+                            AudioSys.playTone(600, 'sine', 0.1, 0.1); // Buy sound
+                            this.render();
+                        }
+                    };
+                    container.appendChild(div);
+                });
+            },
+            applyStats: function(stats, baseSpeed) {
+                SaveSystem.load();
+                let u = SaveSystem.data.upgrades;
+                let moveBonus = 0;
+                this.items.forEach(i => {
+                    let lvl = u[i.id] || 0;
+                    if(lvl > 0) {
+                        if(i.stat === 'moveSpeed') moveBonus += lvl * i.val;
+                        else if(i.stat === 'cooldown') stats.cooldown -= lvl * i.val;
+                        else if(i.stat === 'maxHp') stats.maxHp += lvl * i.val; 
+                        else if(i.stat === 'greed') stats.greed = (stats.greed || 1) + lvl * i.val;
+                        else if(stats[i.stat] !== undefined) stats[i.stat] += lvl * i.val;
+                    }
+                });
+                return moveBonus;
+            }
+        };
+
+        // --- 音效系統 ---
+        const AudioSys = {
+            ctx: null,
+            init: function() { window.AudioContext = window.AudioContext||window.webkitAudioContext; this.ctx = new AudioContext(); },
+            playTone: function(freq, type, duration, vol=0.1) {
+                if(!this.ctx) return;
+                const osc = this.ctx.createOscillator(); 
+                const gain = this.ctx.createGain();
+                
+                osc.type = (type === 'sawtooth' || type === 'square') ? 'triangle' : type; 
+                if (type === 'square') osc.type = 'sine'; 
+
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(vol, this.ctx.currentTime + 0.02); 
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration); 
+                
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + duration + 0.1);
+            },
+            playShoot: () => AudioSys.playTone(300+Math.random()*100, 'square', 0.15, 0.05),
+            playHit: () => AudioSys.playTone(100, 'triangle', 0.1, 0.08),
+            playGem: () => AudioSys.playTone(600+Math.random()*200, 'sine', 0.1, 0.03),
+            playGold: () => AudioSys.playTone(1200, 'sine', 0.1, 0.05),
+            playLevelUp: () => [440,554,659,880].forEach((f,i)=>setTimeout(()=>AudioSys.playTone(f,'sine',0.4,0.1), i*120)),
+            playChest: () => [523,659,784,1046,784,1046].forEach((f,i)=>setTimeout(()=>AudioSys.playTone(f,'triangle',0.3,0.15), i*150)),
+            playMapChest: () => [600, 800, 1000].forEach((f,i)=>setTimeout(()=>AudioSys.playTone(f,'sine',0.3,0.1), i*150)),
+            playAlarm: () => AudioSys.playTone(150, 'triangle', 0.5, 0.2)
+        };
+
+        // --- 資料定義 ---
+        const MONSTERS = {
+            bat: { name: '魔眼蝙蝠', char: '蝠', hp: 10, dmg: 5, speed: 90, xp: 1, color: '#555', size: 10, type: 'melee' },
+            skeleton: { name: '枯骨戰士', char: '骨', hp: 40, dmg: 8, speed: 60, xp: 3, color: '#bdc3c7', size: 14, type: 'melee' },
+            goblin: { name: '深淵小鬼', char: '鬼', hp: 20, dmg: 6, speed: 180, xp: 2, color: '#27ae60', size: 11, type: 'melee' },
+            mage: { name: '虛空術士', char: '術', hp: 30, dmg: 10, speed: 60, xp: 5, color: '#8e44ad', size: 14, type: 'ranged', range: 250, cd: 2.0 },
+            elite: { name: '皇家守衛', char: '衛', hp: 200, dmg: 15, speed: 72, xp: 50, color: '#c0392b', size: 25, type: 'melee', pushResist: 0.8 },
+            boss: { name: '混沌原質', char: '王', hp: 1000, dmg: 25, speed: 48, xp: 500, color: '#e74c3c', size: 60, type: 'melee', pushResist: 0.95 }
+        };
+
+        const TIMELINE = [
+            { time: 0, type: 'ambient', interval: 5.0, pool: ['bat'], count: 10 },
+            { time: 60, type: 'ambient', interval: 4.0, pool: ['bat', 'bat', 'skeleton'], count: 15 },
+            { time: 180, type: 'ambient', interval: 4.0, pool: ['bat', 'skeleton', 'goblin'], count: 20 },
+            { time: 300, type: 'ambient', interval: 3.0, pool: ['skeleton', 'goblin', 'mage'], count: 25 },
+            { time: 480, type: 'ambient', interval: 2.5, pool: ['skeleton', 'goblin', 'mage'], count: 30 },
+            { time: 720, type: 'ambient', interval: 2.0, pool: ['skeleton', 'goblin', 'mage', 'elite'], count: 35 },
+            { time: 90, type: 'wave', mob: 'skeleton', count: 50, msg: "枯骨大軍逼近..." },
+            { time: 240, type: 'rush', mob: 'goblin', count: 40, msg: "深淵小鬼突襲！" },
+            { time: 300, type: 'boss', mob: 'elite', count: 1, msg: "皇家守衛出現！" },
+            { time: 420, type: 'siege', mob: 'mage', count: 15, msg: "虛空術士包圍網！" },
+            { time: 540, type: 'wave', mob: 'skeleton', count: 100, msg: "亡靈天災！" },
+            { time: 600, type: 'boss', mob: 'boss', count: 1, msg: "混沌原質降臨！" },
+            { time: 660, type: 'boss', mob: 'elite', count: 3, msg: "皇家衛隊！" },
+            { time: 900, type: 'boss', mob: 'boss', count: 1, msg: "最終審判！" }
+        ];
+
+        const WEAPONS = {
+            whip: { name: "虛空之鞭", desc: "撕裂前方空間", type: "melee", cd: 1.33, dmg: 10, area: 1, speed: 1, dur: 0.2, maxLvl: 8, color: '#e67e22' },
+            wand: { name: "星辰魔杖", desc: "發射追蹤星彈", type: "proj", cd: 1.0, dmg: 10, area: 1, speed: 420, dur: 1.0, maxLvl: 8, color: '#3498db' },
+            knife: { name: "暗影飛刀", desc: "向前方投擲利刃", type: "proj", cd: 0.5, dmg: 8, area: 1, speed: 720, dur: 0.6, maxLvl: 8, color: '#bdc3c7' },
+            axe: { name: "裂地重斧", desc: "拋物線重擊", type: "proj", cd: 1.6, dmg: 20, area: 1, speed: 540, dur: 1.3, maxLvl: 8, color: '#95a5a6' },
+            cross: { name: "聖光十字", desc: "迴旋淨化", type: "proj", cd: 1.33, dmg: 15, area: 1, speed: 480, dur: 2.0, maxLvl: 8, color: '#f1c40f' },
+            bible: { name: "禁忌法典", desc: "環繞自身的經文", type: "orbit", cd: 3.3, dmg: 10, area: 1, speed: 3.0, dur: 3.0, maxLvl: 8, color: '#8e44ad' },
+            firewand: { name: "煉獄火杖", desc: "隨機轟炸高傷", type: "proj", cd: 1.6, dmg: 30, area: 1, speed: 360, dur: 1.3, maxLvl: 8, color: '#e74c3c' },
+            garlic: { name: "守護力場", desc: "持續傷害光環", type: "aura", cd: 1.0, dmg: 4, area: 1, speed: 0, dur: 999, maxLvl: 8, color: '#ecf0f1' }, 
+            water: { name: "淨化聖水", desc: "持續燃燒地面", type: "zone", cd: 2.3, dmg: 10, area: 1, speed: 0, dur: 1.6, maxLvl: 8, color: '#2980b9' },
+            lightning: { name: "雷霆指環", desc: "天降落雷", type: "instant", cd: 3.0, dmg: 40, area: 1, speed: 0, dur: 0.2, maxLvl: 8, color: '#f1c40f' },
+        };
+
+        const EVOLVED = {
+            bloody_tear: { name: "鮮血渴望", desc: "吸血與致命爆擊", cd: 1.33, dmg: 30, color: '#c0392b' },
+            holy_wand: { name: "神聖裁決", desc: "無間斷連射", cd: 0.16, dmg: 15, color: '#3498db' },
+            thousand_edge: { name: "萬劍歸宗", desc: "無盡飛刀風暴", cd: 0.13, dmg: 12, color: '#bdc3c7' },
+            death_spiral: { name: "死亡華爾滋", desc: "全方位鐮刀擴散", cd: 1.5, dmg: 40, color: '#7f8c8d' },
+            heaven_sword: { name: "天堂之怒", desc: "迴旋爆擊巨劍", cd: 1.16, dmg: 60, color: '#f1c40f' },
+            unholy_vespers: { name: "邪神晚禱", desc: "永恆存在的法陣", cd: 0.1, dmg: 15, color: '#8e44ad' },
+            hellfire: { name: "地獄業火", desc: "穿透一切的火球", cd: 1.5, dmg: 60, color: '#e74c3c' },
+            soul_eater: { name: "噬魂黑洞", desc: "掠奪生命的力場", cd: 0.5, dmg: 8, color: '#ecf0f1' },
+            la_borra: { name: "深淵凝視", desc: "追蹤敵人的法陣", cd: 1.6, dmg: 20, color: '#2980b9' },
+            thunder_loop: { name: "雷神之怒", desc: "雙重雷擊迴圈", cd: 2.6, dmg: 80, color: '#f1c40f' },
+        };
+
+        const PASSIVES = {
+            spinach: { name: "泰坦之力", desc: "造成的傷害提升", stat: "might", val: 0.1, maxLvl: 5 },
+            armor: { name: "振金護甲", desc: "受到的傷害減少", stat: "armor", val: 1, maxLvl: 5 },
+            hollow_heart: { name: "黑龍之心", desc: "最大生命值提升", stat: "maxHp", val: 0.2, maxLvl: 5 },
+            pummarola: { name: "再生細胞", desc: "生命恢復速度提升", stat: "recovery", val: 0.5, maxLvl: 5 },
+            empty_tome: { name: "時光祕籍", desc: "冷卻時間減少", stat: "cooldown", val: 0.08, maxLvl: 5 },
+            candelabrador: { name: "擴充稜鏡", desc: "攻擊範圍提升", stat: "area", val: 0.1, maxLvl: 5 },
+            bracer: { name: "風之護腕", desc: "投射物速度提升", stat: "speed", val: 0.1, maxLvl: 5 },
+            spellbinder: { name: "乙太電池", desc: "持續時間提升", stat: "duration", val: 0.1, maxLvl: 5 },
+            duplicator: { name: "幻影戒指", desc: "投射物數量 +1", stat: "amount", val: 1, maxLvl: 2 },
+            clover: { name: "幸運兔腳", desc: "幸運值提升", stat: "luck", val: 0.1, maxLvl: 5 },
+            attractorb: { name: "重力核心", desc: "拾取範圍提升", stat: "magnet", val: 0.5, maxLvl: 5 },
+            crown: { name: "王者之冠", desc: "經驗值獲取提升", stat: "growth", val: 0.1, maxLvl: 5 },
+        };
+
+        const RECIPES = [
+            {w:'whip', p:'hollow_heart', r:'bloody_tear'}, {w:'wand', p:'empty_tome', r:'holy_wand'},
+            {w:'knife', p:'bracer', r:'thousand_edge'}, {w:'axe', p:'candelabrador', r:'death_spiral'},
+            {w:'cross', p:'clover', r:'heaven_sword'}, {w:'bible', p:'spellbinder', r:'unholy_vespers'},
+            {w:'firewand', p:'spinach', r:'hellfire'}, {w:'garlic', p:'pummarola', r:'soul_eater'},
+            {w:'water', p:'attractorb', r:'la_borra'}, {w:'lightning', p:'duplicator', r:'thunder_loop'}
+        ];
+
+        // --- 遊戲核心 ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        let W = window.innerWidth, H = window.innerHeight;
+
+        let lastTime = 0;
+
+        const Game = {
+            state: 'start',
+            time: 0, kills: 0,
+            chestTimer: 0,
+            stopTime: 0,
+            runGold: 0,
+            camera: {x:0, y:0},
+            ambient: { interval: 5.0, pool: ['bat'], count: 10, timer: 0 },
+            
+            init: function() {
+                SaveSystem.load();
+                AudioSys.init(); resize(); generateTerrain(); this.reset();
+                document.getElementById('start-screen').classList.add('hidden');
+                document.getElementById('shop-screen').classList.add('hidden');
+                lastTime = performance.now();
+                requestAnimationFrame(this.loop);
+            },
+            reset: function() {
+                this.state = 'playing'; this.time = 0; this.kills = 0; this.chestTimer = 0; this.stopTime = 0;
+                this.runGold = 0;
+                this.ambient = { interval: 5.0, pool: ['bat'], count: 10, timer: 0 };
+                Player.reset();
+                Enemies.length = 0; Projectiles.length = 0; Drops.length = 0; DamageNumbers.length = 0; EnemyProjs.length = 0;
+                
+                // 立即生成怪物
+                for(let i=0; i<5; i++) spawnMob('bat');
+                
+                addWeapon('whip');
+                UI.updateBuffs();
+            },
+            loop: function(timestamp) {
+                if(Game.state === 'playing') {
+                    const dt = (timestamp - lastTime) / 1000;
+                    lastTime = timestamp;
+                    update(Math.min(dt, 0.1));
+                    draw();
+                } else {
+                    lastTime = timestamp;
+                }
+                requestAnimationFrame(Game.loop);
+            },
+            doReroll: function() {
+                if(Player.rerolls > 0) {
+                    Player.rerolls--;
+                    AudioSys.playTone(400, 'sine', 0.1, 0.1);
+                    renderLevelUpCards();
+                    document.getElementById('btn-reroll').innerText = `刷新選項 (${Player.rerolls})`;
+                    if(Player.rerolls <= 0) document.getElementById('btn-reroll').disabled = true;
+                }
+            }
+        };
+
+        const Player = {
+            x: 0, y: 0, hp: 100, maxHp: 100, speed: 240, level: 1, xp: 0, nextXp: 10, facing: 1,
+            rerolls: 5,
+            buffs: { might: 0 },
+            stats: { might:1, cooldown:1, area:1, speed:1, duration:1, amount:0, luck:1, growth:1, magnet:1, armor:0, recovery:0, greed:1 },
+            weapons: {}, passives: {},
+            reset: function() {
+                this.x = 0; this.y = 0; this.hp = 100; this.maxHp = 100; this.level = 1; this.xp = 0; this.nextXp = 10;
+                this.rerolls = 5;
+                this.buffs = { might: 0 };
+                this.weapons = {}; this.passives = {}; 
+                this.updateStats();
+            },
+            updateStats: function() {
+                let s = this.stats;
+                s.might=1; s.cooldown=1; s.area=1; s.speed=1; s.duration=1; s.amount=0; s.luck=1; s.growth=1; s.magnet=1; s.armor=0; s.recovery=0; s.greed=1;
+                s.maxHp = 0; 
+
+                let moveBonus = Shop.applyStats(s);
+                this.speed = 240 + moveBonus;
+
+                for(let k in this.passives) {
+                    let lvl = this.passives[k].level; let val = PASSIVES[k].val;
+                    if(PASSIVES[k].stat === 'cooldown') s.cooldown -= lvl*val;
+                    else if(PASSIVES[k].stat === 'maxHp') s.maxHp += lvl*val;
+                    else s[PASSIVES[k].stat] += lvl*val;
+                }
+
+                s.cooldown = Math.max(0.1, s.cooldown);
+                this.maxHp = Math.floor(100 * (1 + s.maxHp));
+                if(this.hp > this.maxHp) this.hp = this.maxHp;
+            }
+        };
+
+        let Enemies = [];
+        let Projectiles = [];
+        let EnemyProjs = [];
+        let Drops = [];
+        let DamageNumbers = [];
+        let Obstacles = []; // 新增障礙物陣列
+        let enemyIdCounter = 0;
+
+        const keys = {};
+        window.onkeydown = e => keys[e.key.toLowerCase()] = true;
+        window.onkeyup = e => keys[e.key.toLowerCase()] = false;
+
+        function update(dt) {
+            Game.time += dt;
+            
+            if(Player.buffs.might > 0) {
+                Player.buffs.might -= dt;
+                if(Player.buffs.might <= 0) Player.buffs.might = 0;
+                UI.updateBuffs();
+            }
+            if(Game.stopTime > 0) {
+                Game.stopTime -= dt;
+                if(Game.stopTime <= 0) Game.stopTime = 0;
+                UI.updateBuffs();
+            }
+
+            LevelDirector.check(Game.time);
+            
+            Game.chestTimer += dt;
+            if(Game.chestTimer > 45) {
+                Game.chestTimer = 0;
+                let angle = Math.random() * Math.PI * 2;
+                let dist = 400 + Math.random() * 300; 
+                Drops.push({
+                    x: Player.x + Math.cos(angle)*dist, 
+                    y: Player.y + Math.sin(angle)*dist, 
+                    type: 'chest_item'
+                });
+            }
+
+            if(Player.hp < Player.maxHp) Player.hp = Math.min(Player.maxHp, Player.hp + Player.stats.recovery * dt);
+
+            // 1. 玩家移動與障礙物碰撞
+            let dx = 0, dy = 0;
+            if(keys['w']) dy = -1; if(keys['s']) dy = 1;
+            if(keys['a']) dx = -1; if(keys['d']) dx = 1;
+            if(dx||dy) {
+                let len = Math.hypot(dx,dy);
+                let moveDist = Player.speed * dt;
+                Player.x += (dx/len) * moveDist;
+                Player.y += (dy/len) * moveDist;
+                if(dx!==0) Player.facing = Math.sign(dx);
+            }
+            
+            // 障礙物碰撞檢測
+            Obstacles.forEach(o => {
+                let dist = Math.hypot(Player.x - o.x, Player.y - o.y);
+                if (dist < o.size + 12) { // 12 is player radius
+                    let angle = Math.atan2(Player.y - o.y, Player.x - o.x);
+                    let push = (o.size + 12) - dist;
+                    Player.x += Math.cos(angle) * push;
+                    Player.y += Math.sin(angle) * push;
+                }
+            });
+
+            Game.camera.x = Player.x - W/2;
+            Game.camera.y = Player.y - H/2;
+
+            for(let id in Player.weapons) {
+                let w = Player.weapons[id];
+                if(w.timer > 0) w.timer -= dt;
+                else {
+                    fireWeapon(id, w.level);
+                    let def = WEAPONS[id] || EVOLVED[id];
+                    let cd = def.cd * Player.stats.cooldown;
+                    w.timer = cd;
+                }
+            }
+
+            for(let i=Projectiles.length-1; i>=0; i--) {
+                let p = Projectiles[i];
+                p.dur -= dt;
+                
+                if(!p.static) { 
+                    p.x += p.vx * dt; 
+                    p.y += p.vy * dt; 
+                } else if(p.orbit) { 
+                    p.angle += p.orbitSpeed * dt; 
+                    p.x = Player.x + Math.cos(p.angle)*p.dist; 
+                    p.y = Player.y + Math.sin(p.angle)*p.dist; 
+                } else if(p.follow) { 
+                    p.x += (Player.x-p.x)*2.0*dt; 
+                    p.y += (Player.y-p.y)*2.0*dt; 
+                }
+
+                // 投射物與障礙物碰撞
+                if (p.type === 'proj') {
+                    for(let o of Obstacles) {
+                        if (Math.hypot(p.x - o.x, p.y - o.y) < o.size) {
+                            p.dur = 0; 
+                            break;
+                        }
+                    }
+                }
+
+                if(p.type === 'aura' || p.type === 'orbit' || p.type === 'zone') {
+                    p.tickTimer = (p.tickTimer || 0) - dt;
+                    if(p.tickTimer <= 0) {
+                        p.tickTimer = 0.2; 
+                        checkCollisions(p, true);
+                    }
+                } else {
+                    checkCollisions(p, false);
+                }
+
+                if(p.dur<=0) Projectiles.splice(i,1);
+            }
+
+            LevelDirector.spawnAmbient(dt);
+            if (Game.stopTime <= 0) {
+                for(let i=Enemies.length-1; i>=0; i--) {
+                    let e = Enemies[i];
+                    let distToP = Math.hypot(Player.x-e.x, Player.y-e.y);
+                    
+                    if(e.def.type === 'ranged' && distToP < e.def.range) {
+                        e.attackTimer = (e.attackTimer || e.def.cd) - dt;
+                        if(e.attackTimer <= 0) {
+                             let ang = Math.atan2(Player.y-e.y, Player.x-e.x);
+                             EnemyProjs.push({x:e.x, y:e.y, vx:Math.cos(ang)*240, vy:Math.sin(ang)*240, dur:2.0, dmg:e.def.dmg});
+                             e.attackTimer = e.def.cd;
+                        }
+                    } else {
+                        let ang = Math.atan2(Player.y-e.y, Player.x-e.x);
+                        let move = e.def.speed * dt;
+                        // 簡單的怪物推擠障礙物邏輯 (選用)
+                        e.x += Math.cos(ang) * move;
+                        e.y += Math.sin(ang) * move;
+                    }
+
+                    if(distToP < e.def.size + 10) {
+                        e.touchTimer = (e.touchTimer || 0) - dt;
+                        if(e.touchTimer <= 0) {
+                            hitPlayer(e.def.dmg);
+                            e.touchTimer = 0.5;
+                        }
+                    }
+                    
+                    if(distToP > 1500) Enemies.splice(i,1);
+                }
+
+                for(let i=EnemyProjs.length-1; i>=0; i--) {
+                    let p = EnemyProjs[i];
+                    p.x += p.vx * dt; p.y += p.vy * dt; p.dur -= dt;
+                    if(Math.hypot(p.x-Player.x, p.y-Player.y) < 10) {
+                        hitPlayer(p.dmg);
+                        p.dur = 0;
+                    }
+                    if(p.dur<=0) EnemyProjs.splice(i,1);
+                }
+            }
+
+            for(let i=Drops.length-1; i>=0; i--) {
+                let d = Drops[i];
+                let dist = Math.hypot(Player.x-d.x, Player.y-d.y);
+                let range = (d.type.startsWith('gem') || d.type === 'coin'?80:50) * Player.stats.magnet;
+                if(dist < range) {
+                    d.x += (Player.x-d.x)*8*dt; d.y += (Player.y-d.y)*8*dt;
+                    if(dist < 10) {
+                        if(d.type.startsWith('gem')) { 
+                            Player.xp += d.val * Player.stats.growth; 
+                            AudioSys.playGem(); 
+                            while(Player.xp >= Player.nextXp) {
+                                Player.xp -= Player.nextXp;
+                                levelUp();
+                            }
+                        }
+                        else if(d.type === 'coin') {
+                            let amount = Math.floor(10 * Player.stats.greed);
+                            Game.runGold += amount;
+                            AudioSys.playGold();
+                        }
+                        else if(d.type==='chest_upgrade') openChestUpgrade();
+                        else if(d.type==='chest_item') openChestItem();
+                        else if(d.type==='chicken') Player.hp = Math.min(Player.maxHp, Player.hp+30);
+                        else if(d.type==='gold') { Game.runGold += 100 * Player.stats.greed; AudioSys.playGold(); }
+                        Drops.splice(i,1);
+                    }
+                }
+            }
+
+            for(let i=DamageNumbers.length-1; i>=0; i--) {
+                let d = DamageNumbers[i];
+                d.y -= 30 * dt; 
+                d.life -= dt; 
+                if(d.life<=0) DamageNumbers.splice(i,1);
+            }
+
+            UI.update();
+        }
+
+        function checkCollisions(p, isContinuous) {
+            if(!isContinuous && !p.pierceInfinite && p.pierce <= 0) return;
+
+            for(let e of Enemies) {
+                if(!isContinuous && p.hitIds.includes(e.id)) continue;
+
+                let isHit = false;
+
+                if (p.type === 'rect' && p.w && p.h) {
+                    let minX = p.x - p.w/2; let maxX = p.x + p.w/2;
+                    let minY = p.y - p.h/2; let maxY = p.y + p.h/2;
+                    let testX = e.x; let testY = e.y;
+                    if (e.x < minX) testX = minX; else if (e.x > maxX) testX = maxX;
+                    if (e.y < minY) testY = minY; else if (e.y > maxY) testY = maxY;
+                    let distX = e.x - testX; let distY = e.y - testY;
+                    if (Math.sqrt(distX*distX + distY*distY) <= e.def.size) isHit = true;
+                } else {
+                    if(Math.hypot(p.x-e.x, p.y-e.y) < (p.size||10) + e.def.size) isHit = true;
+                }
+
+                if(isHit) {
+                    hitEnemy(e, p.dmg, p.kb);
+                    if(p.leech && Player.hp<Player.maxHp) Player.hp++;
+                    
+                    if(!isContinuous) {
+                        p.hitIds.push(e.id);
+                        if(!p.pierceInfinite) {
+                            p.pierce--;
+                            if(p.pierce <= 0) { p.dur = 0; break; }
+                        }
+                    }
+                }
+            }
+        }
+
+        function calculateDamage(baseDmg) {
+            let buffMult = (Player.buffs.might > 0) ? 3.0 : 1.0; 
+            let might = Player.stats.might * buffMult;
+            let isCrit = Math.random() < (Player.stats.luck * 0.1);
+            return Math.floor(baseDmg * might * (isCrit ? 2 : 1));
+        }
+
+        function fireWeapon(id, lvl) {
+            let def = WEAPONS[id] || EVOLVED[id];
+            let dmg = calculateDamage(def.dmg);
+            let area = def.area * Player.stats.area;
+            let speed = def.speed * Player.stats.speed;
+            let amount = (['garlic','soul_eater','unholy_vespers'].includes(def.name)) ? 1 : (1 + Player.stats.amount);
+            if(def.name==="雷環") amount += 1;
+
+            let props = { dmg:dmg, dur:def.dur*Player.stats.duration, hitIds:[], pierceInfinite:false, kb:2 };
+
+            if(id==='whip' || id==='bloody_tear') {
+                Projectiles.push({x:Player.x+Player.facing*70*area, y:Player.y, w:140*area, h:50*area, ...props, static:true, pierceInfinite:true, type:'rect', leech:id==='bloody_tear', kb:4});
+                AudioSys.playShoot();
+            } else if(def.type==='aura') {
+                Projectiles.push({x:Player.x, y:Player.y, size:60*area, ...props, dur:def.cd, static:true, pierceInfinite:true, type:'circle', leech:id==='soul_eater', kb:1});
+            } else if(def.type==='orbit') {
+                 for(let i=0; i<amount; i++) {
+                     Projectiles.push({x:Player.x, y:Player.y, dist:100*area, angle:(Math.PI*2/amount)*i, size:10, ...props, static:true, orbit:true, pierceInfinite:true, orbitSpeed: def.speed, kb:2});
+                 }
+            } else if(def.type==='zone') {
+                Projectiles.push({x:Player.x+(Math.random()-0.5)*200, y:Player.y+(Math.random()-0.5)*200, size:40*area, ...props, static:true, pierceInfinite:true, follow:id==='la_borra'});
+            } else if(def.type==='instant') {
+                let t = getNearestEnemy();
+                if(t) {
+                    for(let i=0; i<amount; i++) {
+                        setTimeout(()=>{
+                            Projectiles.push({x:t.x+(Math.random()-0.5)*20, y:t.y+(Math.random()-0.5)*20, size:50*area, ...props, dur:0.2, static:true, pierceInfinite:true, type:'circle'});
+                            AudioSys.playShoot();
+                        }, i*200);
+                    }
+                }
+            } else {
+                let target = getNearestEnemy();
+                let baseAng = (id==='knife'||id==='thousand_edge') ? (Player.facing===1?0:Math.PI) : (target ? Math.atan2(target.y-Player.y, target.x-Player.x) : Math.random()*Math.PI*2);
+                for(let i=0; i<amount; i++) {
+                    let ang = baseAng + (i-amount/2)*0.15;
+                    Projectiles.push({x:Player.x, y:Player.y, vx:Math.cos(ang)*speed, vy:Math.sin(ang)*speed, size:8*area, ...props, pierce:def.name==="地獄火"?999:1+(id==='axe'?999:0)});
+                }
+                if(amount>0) AudioSys.playShoot();
+            }
+        }
+
+        function hitEnemy(e, dmg, kb) {
+            e.hp -= dmg;
+            DamageNumbers.push({x:e.x, y:e.y-20, val:dmg, life:0.5});
+            AudioSys.playHit();
+            let push = (kb || 0) * (1 - (e.def.pushResist||0));
+            if(push > 0) {
+                let ang = Math.atan2(e.y-Player.y, e.x-Player.x);
+                e.x += Math.cos(ang) * push * 10; e.y += Math.sin(ang) * push * 10;
+            }
+            if(e.hp <= 0) {
+                Game.kills++;
+                
+                // 掉落邏輯
+                if(e.def.name === 'Elite' || e.def.name === 'BOSS Slime') Drops.push({x:e.x+10, y:e.y, type:'chest_upgrade'});
+                else {
+                    let rand = Math.random();
+                    if(rand < 0.001) Drops.push({x:e.x, y:e.y, type:'chest_upgrade'});
+                    else if(rand < 0.05) Drops.push({x:e.x, y:e.y, type:'coin', color:'gold'}); 
+                    else {
+                        // 經驗掉落
+                        let isSuper = Math.random() < 0.02; // 2% 機率
+                        let xpVal = e.def.xp * (isSuper ? 10 : 1);
+                        let color = isSuper ? '#3498db' : '#2ecc71'; // Blue vs Green
+                        let type = isSuper ? 'gem_super' : 'gem_norm';
+                        Drops.push({x:e.x, y:e.y, type: type, val: xpVal, color: color});
+                    }
+                }
+                
+                let idx = Enemies.indexOf(e); Enemies.splice(idx, 1);
+            }
+        }
+
+        function hitPlayer(dmg) {
+            let finalDmg = Math.max(1, dmg - Player.stats.armor);
+            Player.hp -= finalDmg;
+            DamageNumbers.push({x:Player.x, y:Player.y, val:-finalDmg, color:'red', life:0.8});
+            AudioSys.playHit();
+            if(Player.hp <= 0) {
+                // 結算金幣
+                SaveSystem.addGold(Game.runGold);
+                
+                Game.state = 'gameover';
+                document.getElementById('gameover-screen').classList.remove('hidden');
+                document.getElementById('final-stats').innerHTML = `存活時間: ${document.getElementById('time-txt').innerText}<br>擊殺數: ${Game.kills}<br>本局金幣: <span style="color:gold">$${Math.floor(Game.runGold)}</span>`;
+                AudioSys.playAlarm();
+            }
+        }
+
+        const LevelDirector = {
+            spawnAmbient: function(dt) {
+                if(Game.stopTime > 0) return; 
+                Game.ambient.timer += dt;
+                if(Game.ambient.timer > Game.ambient.interval) {
+                    Game.ambient.timer = 0;
+                    for(let i=0; i<Game.ambient.count; i++) spawnMob(randomItem(Game.ambient.pool));
+                }
+            },
+            check: function(t) {
+                let amb = TIMELINE.filter(e => e.type==='ambient' && e.time <= t).pop();
+                if(amb) { Game.ambient.interval = amb.interval; Game.ambient.pool = amb.pool; Game.ambient.count = amb.count; }
+                let evt = TIMELINE.find(e => Math.abs(e.time - t) < 0.1 && !e.triggered);
+                if(evt && evt.type !== 'ambient') { evt.triggered = true; this.triggerEvent(evt); }
+            },
+            triggerEvent: function(evt) {
+                if(evt.msg) showNotify(evt.msg); AudioSys.playAlarm();
+                if(evt.type === 'wave' || evt.type === 'rush' || evt.type === 'siege') {
+                    let count = evt.count;
+                    let int = setInterval(() => { 
+                        if(Game.stopTime <= 0) spawnMob(evt.mob, evt.type==='siege'); 
+                        count--; if(count<=0 || Game.state!=='playing') clearInterval(int); 
+                    }, 100);
+                } else if(evt.type === 'boss') { for(let i=0; i<evt.count; i++) spawnMob(evt.mob, false, true); }
+            }
+        };
+
+        function spawnMob(key, far=false, isBoss=false) {
+            let def = MONSTERS[key];
+            let angle = Math.random() * Math.PI * 2;
+            let dist = far ? 700 : 500 + Math.random()*100;
+            let mx = Player.x + Math.cos(angle)*dist; let my = Player.y + Math.sin(angle)*dist;
+            let buff = 1 + (Game.time/60)*0.1;
+            Enemies.push({ id: ++enemyIdCounter, x: mx, y: my, hp: def.hp * buff, maxHp: def.hp * buff, def: def });
+        }
+
+        function levelUp() {
+            Player.level++;
+            Player.nextXp = Math.floor(Player.nextXp * 1.2);
+            Game.state = 'paused'; AudioSys.playLevelUp();
+            document.getElementById('levelup-screen').classList.remove('hidden');
+            
+            document.getElementById('btn-reroll').innerText = `刷新選項 (${Player.rerolls})`;
+            document.getElementById('btn-reroll').disabled = Player.rerolls <= 0;
+
+            renderLevelUpCards();
+        }
+
+        function renderLevelUpCards() {
+            let choices = getUpgradeOptions();
+            let container = document.getElementById('levelup-cards'); container.innerHTML = '';
+            
+            choices.forEach(c => {
+                let div = document.createElement('div'); div.className = 'card';
+                let def = c.type==='weapon' ? WEAPONS[c.id] : (c.type==='item'?{name:c.name,desc:c.desc,color:'gold'}:PASSIVES[c.id]);
+                let lvl = c.type==='weapon' ? (Player.weapons[c.id]?.level||0) : (Player.passives[c.id]?.level||0);
+                let isNew = lvl === 0;
+                
+                let headerHTML = `<div class="card-header">
+                    <span style="color:${isNew?'#2ecc71':'#3498db'}">${isNew?'NEW':'UPGRADE'}</span>
+                    ${c.type!=='item' ? `<span>Lv ${lvl} ➜ ${lvl+1}</span>` : ''}
+                </div>`;
+
+                let recipeHTML = '';
+                let checkOwned = (id) => {
+                    if (Player.weapons[id] || Player.passives[id]) return `<span class="owned-tag">(已擁有)</span>`;
+                    return "";
+                };
+
+                if (c.type === 'weapon') {
+                    let rec = RECIPES.find(r => r.w === c.id);
+                    if (rec) {
+                        let pName = PASSIVES[rec.p].name;
+                        let owned = checkOwned(rec.p);
+                        let rName = EVOLVED[rec.r].name;
+                        recipeHTML = `<div class="card-recipe"><span class="recipe-title">進化配方</span><div class="recipe-detail">${def.name} + <span style="color:#f1c40f">${pName}${owned}</span></div><div class="recipe-detail">↓</div><div class="recipe-detail" style="color:#e74c3c; font-weight:bold">${rName}</div></div>`;
+                    }
+                } else if (c.type === 'passive') {
+                    let rec = RECIPES.find(r => r.p === c.id);
+                    if (rec) {
+                        let wName = WEAPONS[rec.w].name;
+                        let owned = checkOwned(rec.w);
+                        let rName = EVOLVED[rec.r].name;
+                        recipeHTML = `<div class="card-recipe"><span class="recipe-title">進化配方</span><div class="recipe-detail"><span style="color:#e67e22">${wName}${owned}</span> + ${def.name}</div><div class="recipe-detail">↓</div><div class="recipe-detail" style="color:#e74c3c; font-weight:bold">${rName}</div></div>`;
+                    }
+                }
+
+                div.innerHTML = `${headerHTML}<div class="card-title" style="color:${def.color||'white'}">${def.name}</div><div class="card-desc">${def.desc}</div>${recipeHTML}`;
+                div.onclick = () => {
+                    if(c.type==='weapon') addWeapon(c.id);
+                    else if(c.type==='passive') addPassive(c.id);
+                    else if(c.id==='chicken') Player.hp = Math.min(Player.maxHp, Player.hp+30);
+                    else if(c.id==='gold') { Game.runGold += 100 * Player.stats.greed; }
+                    document.getElementById('levelup-screen').classList.add('hidden');
+                    Game.state = 'playing';
+                    lastTime = performance.now();
+                };
+                container.appendChild(div);
+            });
+        }
+
+        function getUpgradeOptions() {
+            let pool = [];
+            for(let k in WEAPONS) { if(!Player.weapons[k] && Object.keys(Player.weapons).length<6) pool.push({id:k, type:'weapon'}); else if(Player.weapons[k] && Player.weapons[k].level<8) pool.push({id:k, type:'weapon'}); }
+            for(let k in PASSIVES) { if(!Player.passives[k] && Object.keys(Player.passives).length<6) pool.push({id:k, type:'passive'}); else if(Player.passives[k] && Player.passives[k].level<5) pool.push({id:k, type:'passive'}); }
+            pool.push({id:'chicken', type:'item', name:'烤雞', desc:'回復 30 生命值'});
+            pool.push({id:'gold', type:'item', name:'金幣袋', desc:'獲得 100 金幣'});
+
+            let res = [];
+            for(let i=0; i<3; i++) {
+                if(pool.length===0) break;
+                let idx = Math.floor(Math.random()*pool.length);
+                res.push(pool[idx]);
+                pool.splice(idx,1);
+            }
+            return res;
+        }
+
+        function generateTerrain() {
+            resize(); bgCtx.fillStyle = '#1e272e'; bgCtx.fillRect(0,0,W,H);
+            for(let i=0; i<300; i++) { bgCtx.fillStyle = Math.random()<0.5 ? '#2c3e50' : '#273c75'; bgCtx.beginPath(); bgCtx.arc(Math.random()*W, Math.random()*H, Math.random()*2+1, 0, Math.PI*2); bgCtx.fill(); }
+            
+            // 生成隨機障礙物
+            Obstacles = [];
+            for(let i=0; i<50; i++) {
+                let type = Math.random() < 0.6 ? 'tree' : 'rock';
+                let x = (Math.random() - 0.5) * 3000;
+                let y = (Math.random() - 0.5) * 3000;
+                if(Math.hypot(x, y) < 300) continue; // 避開出生點
+                let size = type === 'tree' ? 30 : 25;
+                Obstacles.push({x, y, type, size});
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0,0,W,H); ctx.save(); ctx.translate(-Game.camera.x, -Game.camera.y);
+            
+            ctx.fillStyle = '#2d3436';
+            let gx = Math.floor(Game.camera.x/100)*100, gy = Math.floor(Game.camera.y/100)*100;
+            for(let x=gx; x<gx+W+100; x+=100) for(let y=gy; y<gy+H+100; y+=100) ctx.fillRect(x, y, 4, 4);
+
+            // 繪製障礙物
+            Obstacles.forEach(o => {
+                ctx.save();
+                ctx.translate(o.x, o.y);
+                if(o.type === 'tree') {
+                    ctx.fillStyle = '#27ae60';
+                    ctx.beginPath(); ctx.arc(0, 0, o.size, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#2ecc71'; ctx.lineWidth = 3; ctx.stroke();
+                } else {
+                    ctx.fillStyle = '#7f8c8d';
+                    ctx.beginPath(); ctx.arc(0, 0, o.size, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#95a5a6'; ctx.lineWidth = 3; ctx.stroke();
+                }
+                ctx.restore();
+            });
+
+            Drops.forEach(d => {
+                let sz = 5;
+                if (d.type === 'chest_upgrade') {
+                    ctx.fillStyle = '#f39c12';
+                    ctx.fillRect(d.x-12, d.y-10, 24, 20);
+                    ctx.fillStyle = '#f1c40f';
+                    ctx.fillRect(d.x-12, d.y-4, 24, 4);
+                    ctx.strokeStyle = '#e67e22'; ctx.lineWidth=2; ctx.strokeRect(d.x-12, d.y-10, 24, 20);
+                } else if (d.type === 'chest_item') {
+                    ctx.fillStyle = '#2980b9';
+                    ctx.fillRect(d.x-12, d.y-10, 24, 20);
+                    ctx.fillStyle = '#3498db';
+                    ctx.fillRect(d.x-12, d.y-4, 24, 4);
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth=2; ctx.strokeRect(d.x-12, d.y-10, 24, 20);
+                } else if (d.type === 'coin') {
+                    ctx.fillStyle = 'gold';
+                    ctx.beginPath(); ctx.arc(d.x, d.y, 6, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#f39c12'; ctx.lineWidth=2; ctx.stroke();
+                } else {
+                    // 經驗寶石顏色
+                    let sz = d.type==='gem_norm'?5 : (d.type==='gem_super'?7 : 5);
+                    ctx.fillStyle = d.color||'#fff';
+                    ctx.beginPath(); ctx.arc(d.x, d.y, sz, 0, Math.PI*2); ctx.fill();
+                }
+            });
+
+            // 怪物
+            Enemies.forEach(e => {
+                ctx.fillStyle = e.def.color; 
+                ctx.beginPath(); ctx.arc(e.x, e.y, e.def.size, 0, Math.PI*2); ctx.fill();
+                if(e.def.hp>100) { 
+                    ctx.fillStyle='red'; ctx.fillRect(e.x-15, e.y-e.def.size-10, 30, 4); 
+                    ctx.fillStyle='#2ecc71'; ctx.fillRect(e.x-15, e.y-e.def.size-10, 30*(e.hp/e.maxHp), 4); 
+                }
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.font = `bold ${Math.max(10, e.def.size*0.8)}px sans-serif`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(e.def.char, e.x, e.y);
+            });
+
+            // 玩家
+            ctx.save();
+            ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 15;
+            ctx.fillStyle = '#00ffff'; ctx.fillRect(Player.x-12, Player.y-12, 24, 24);
+            ctx.fillStyle = '#000'; ctx.fillRect(Player.x + (Player.facing*6), Player.y-4, 4, 4);
+            ctx.restore();
+
+            Projectiles.forEach(p => {
+                ctx.fillStyle = p.type==='rect' ? '#e67e22' : '#f1c40f';
+                if(p.type==='rect') { ctx.save(); ctx.translate(p.x, p.y); ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h); ctx.restore(); }
+                else if (p.type==='circle') { ctx.globalAlpha=0.3; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha=1; }
+                else { ctx.beginPath(); ctx.arc(p.x, p.y, p.size||5, 0, Math.PI*2); ctx.fill(); }
+            });
+
+            EnemyProjs.forEach(p => { ctx.fillStyle='#9b59b6'; ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill(); });
+            
+            DamageNumbers.forEach((d, i) => {
+                ctx.fillStyle = d.color||'white'; ctx.font="bold 16px Arial"; ctx.fillText(d.val, d.x, d.y);
+            });
+
+            ctx.restore();
+        }
+
+        function openChestUpgrade() {
+            Game.state = 'paused'; AudioSys.playChest();
+            document.getElementById('chest-screen').classList.remove('hidden');
+            let content = document.getElementById('chest-content');
+            let titleEl = document.getElementById('chest-title');
+            content.innerHTML = '';
+
+            // 機率調整
+            let r = Math.random();
+            let count = 1; 
+            let chestName = "普通寶箱";
+            let color = "#bdc3c7";
+            
+            if (r < 0.161) { // 16.10%
+                count = 5; chestName = "傳說寶箱 (5連抽!)"; color = "#e74c3c"; 
+            } else if (r < 0.432) { // 16.10 + 27.10 = 43.20% (即 27.10% 機率)
+                count = 3; chestName = "豪華寶箱 (3連抽)"; color = "#f1c40f"; 
+            } else { // 剩下 56.80%
+                count = 1; chestName = "普通寶箱"; color = "#bdc3c7";
+            }
+            
+            titleEl.innerText = chestName;
+            titleEl.style.color = color;
+
+            let existingKeys = [];
+            for(let k in Player.weapons) { if(Player.weapons[k].level < 8) existingKeys.push({id:k, type:'weapon'}); }
+            for(let k in Player.passives) { if(Player.passives[k].level < 5) existingKeys.push({id:k, type:'passive'}); }
+
+            if (existingKeys.length === 0) {
+                content.innerHTML = `<h2 style="color:gold">無可升級技能</h2><p>獲得 ${count * 100} 金幣</p>`;
+                Game.runGold += count * 100;
+            } else {
+                for(let i=0; i<count; i++) {
+                    if (existingKeys.length === 0) break;
+                    let pick = randomItem(existingKeys);
+                    if(pick.type === 'weapon') addWeapon(pick.id);
+                    else addPassive(pick.id);
+                    
+                    let lvl = pick.type==='weapon' ? Player.weapons[pick.id].level : Player.passives[pick.id].level;
+                    let max = pick.type==='weapon' ? 8 : 5;
+                    if(lvl >= max) {
+                        existingKeys = existingKeys.filter(k => k.id !== pick.id);
+                    }
+
+                    let def = pick.type==='weapon' ? WEAPONS[pick.id] : PASSIVES[pick.id];
+                    let card = document.createElement('div');
+                    card.className = 'card';
+                    card.style.width = '120px'; card.style.height = '160px'; 
+                    card.innerHTML = `<div style="color:${def.color||'white'};font-weight:bold;font-size:18px;margin-top:20px;">${def.name}</div><div style="margin-top:20px;">UPGRADE!</div>`;
+                    content.appendChild(card);
+                }
+            }
+        }
+
+        function openChestItem() {
+            Game.state = 'paused'; AudioSys.playMapChest();
+            document.getElementById('chest-screen').classList.remove('hidden');
+            let content = document.getElementById('chest-content');
+            let titleEl = document.getElementById('chest-title');
+            titleEl.innerText = "神祕寶藏"; titleEl.style.color = "#3498db";
+            content.innerHTML = '';
+
+            let r = Math.random();
+            let name = "", desc = "", color = "white";
+
+            if (r < 0.5) {
+                Player.hp = Math.min(Player.maxHp, Player.hp + 50);
+                name = "生命藥劑"; desc = "回復 50 點生命值"; color = "#2ecc71";
+            } else if (r < 0.7) {
+                Player.buffs.might = 10;
+                UI.updateBuffs();
+                name = "狂暴之力"; desc = "傷害提升 200% (10秒)"; color = "#e74c3c";
+            } else if (r < 0.9) {
+                Game.stopTime = 30;
+                UI.updateBuffs();
+                name = "時空沙漏"; desc = "凍結時間 30 秒"; color = "#3498db";
+            } else {
+                Enemies.forEach(e => {
+                    let gemType = 'gem_small'; let c = '#3498db';
+                    if(e.def.xp >= 10) { gemType = 'gem_med'; c = '#2ecc71'; }
+                    Drops.push({x:e.x, y:e.y, type:gemType, val:e.def.xp, color:c});
+                    DamageNumbers.push({x:e.x, y:e.y, val:"DEATH", color:'red', life:1});
+                });
+                Enemies = [];
+                name = "毀滅卷軸"; desc = "消滅所有敵人"; color = "#9b59b6";
+            }
+
+            let card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<h2 style="color:${color}">${name}</h2><p>${desc}</p>`;
+            content.appendChild(card);
+        }
+
+        // --- 核心函數修復 (重要) ---
+        function addWeapon(id) { 
+            if(Player.weapons[id]) { 
+                if(Player.weapons[id].level < 8) Player.weapons[id].level++; 
+            } else { 
+                let isEvo = EVOLVED[id]!==undefined; 
+                Player.weapons[id] = { level: isEvo?1:1, timer:0 }; 
+            } 
+            renderInv(); 
+        }
+
+        function addPassive(id) { 
+            if(Player.passives[id]) { 
+                if(Player.passives[id].level<5) Player.passives[id].level++; 
+            } else {
+                Player.passives[id] = { level: 1 }; 
+            }
+            Player.updateStats(); 
+            renderInv(); 
+        }
+
+        function renderInv() {
+            const wDiv = document.getElementById('weapon-slots'); 
+            const pDiv = document.getElementById('passive-slots'); 
+            wDiv.innerHTML=''; 
+            pDiv.innerHTML='';
+            for(let id in Player.weapons) { 
+                let def = WEAPONS[id] || EVOLVED[id]; 
+                wDiv.innerHTML += `<div class="inv-slot" style="border-color:${def.color}"><div style="color:${def.color};font-size:20px;font-weight:bold">${def.name[0]}</div><div class="inv-lvl">${Player.weapons[id].level}</div></div>`; 
+            }
+            for(let id in Player.passives) { 
+                let def = PASSIVES[id]; 
+                pDiv.innerHTML += `<div class="inv-slot"><div style="color:white;font-size:16px;">${def.name[0]}</div><div class="inv-lvl">${Player.passives[id].level}</div></div>`; 
+            }
+        }
+
+        const UI = { 
+            closeChest: function() { document.getElementById('chest-screen').classList.add('hidden'); Game.state = 'playing'; lastTime = performance.now(); }, 
+            update: function() { 
+                document.getElementById('lvl-txt').innerText = Player.level; 
+                let m = Math.floor(Game.time/60).toString().padStart(2,'0'); 
+                let s = Math.floor(Game.time%60).toString().padStart(2,'0'); 
+                document.getElementById('time-txt').innerText = `${m}:${s}`; 
+                document.getElementById('hp-txt').innerText = Math.floor(Player.hp); 
+                document.getElementById('kill-txt').innerText = Game.kills; 
+                document.getElementById('xp-bar-fill').style.width = (Player.xp/Player.nextXp)*100 + "%"; 
+                document.getElementById('run-gold-txt').innerText = Math.floor(Game.runGold);
+            },
+            updateBuffs: function() {
+                let d = document.getElementById('buff-bar'); d.innerHTML = '';
+                if(Player.buffs.might > 0) d.innerHTML += `<div class="buff-item">狂暴: ${Math.ceil(Player.buffs.might)}s</div>`;
+                if(Game.stopTime > 0) d.innerHTML += `<div class="buff-item" style="color:#3498db;text-shadow:0 0 10px #3498db">時停: ${Math.ceil(Game.stopTime)}s</div>`;
+            }
+        };
+
+        function getNearestEnemy() { let t=null, d=9999; for(let e of Enemies) { let dist = Math.hypot(e.x-Player.x, e.y-Player.y); if(dist<d && dist<500) { d=dist; t=e; } } return t; }
+        function resize() { W = window.innerWidth; H = window.innerHeight; canvas.width = W; canvas.height = H; bgCanvas.width = W; bgCanvas.height = H; }
+        window.addEventListener('resize', () => { resize(); generateTerrain(); });
+        function showNotify(msg) { let el = document.getElementById('wave-notify'); el.innerText = msg; el.style.opacity = 1; setTimeout(() => el.style.opacity = 0, 3000); }
+        function randomItem(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+
+        window.Game = Game;
+        window.UI = UI;
+        window.Shop = Shop;
+
+        })();
+// 金幣同步系統 (添加到原有的 script 最後)
+window.addEventListener('message', function(event) {
+    if (event.data.type === 'setCoins') {
+        SaveSystem.data.gold = event.data.coins;
+        SaveSystem.save();
+        UI.update();
+    }
+});
+
+// 遊戲結束時同步金幣
+const originalSaveSystemAddGold = SaveSystem.addGold;
+SaveSystem.addGold = function(amount) {
+    originalSaveSystemAddGold.call(this, amount);
+    
+    // 通知父頁面金幣變化
+    try {
+        window.parent.postMessage({
+            type: 'addCoins',
+            amount: amount
+        }, '*');
+    } catch(e) {}
+};
+
+// 初始化時從父頁面獲取金幣
+window.addEventListener('load', function() {
+    try {
+        window.parent.postMessage({
+            type: 'getCoins'
+        }, '*');
+    } catch(e) {}
+});
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小遊戲合集</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: Inter, Noto Sans TC, sans-serif;
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            overflow: hidden;
+        }
+        .hidden { display: none !important; }
+        .game-screen {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        canvas {
+            background-color: #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            image-rendering: pixelated;
+        }
+        .minesweeper-grid {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 2px;
+            background-color: #4a5568;
+            border: 4px solid #4a5568;
+            border-radius: 4px;
+        }
+        .mine-tile {
+            width: 25px;
+            height: 25px;
+            background-color: #718096;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+        .mine-tile:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 8px rgba(255,255,255,0.3);
+        }
+        .mine-tile.revealed { background-color: #2d3748; }
+        .mine-tile.mine { background-color: #e53e3e; }
+        .mine-tile.chord-hover {
+            background-color: #f6ad55 !important;
+            box-shadow: 0 0 12px rgba(246, 173, 85, 0.8);
+            animation: chordPulse 0.5s ease-in-out;
+        }
+        @keyframes chordPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .color-1 { color: #4299e1; }
+        .color-2 { color: #48bb78; }
+        .color-3 { color: #ed8936; }
+        .color-4 { color: #9f7aea; }
+        .color-5 { color: #e53e3e; }
+        .color-6 { color: #38b2ac; }
+        .color-7 { color: #ed64a6; }
+        .color-8 { color: #a0aec0; }
+        /* 主題樣式保持不變 */
+        .theme-classic .mine-tile { background-color: #c0c0c0; border: 2px outset #f0f0f0; }
+        .theme-classic .mine-tile.revealed { background-color: #aaa; border: 1px solid #888; }
+        .theme-dark .mine-tile { background-color: #718096; }
+        .theme-dark .mine-tile.revealed { background-color: #2d3748; }
+        .theme-forest .mine-tile { background-color: #68d391; }
+        .theme-forest .mine-tile.revealed { background-color: #2f855a; }
+        .theme-ocean .mine-tile { background-color: #63b3ed; }
+        .theme-ocean .mine-tile.revealed { background-color: #3182ce; }
+        .theme-sunset .mine-tile { background-color: #f6ad55; }
+        .theme-sunset .mine-tile.revealed { background-color: #dd6b20; }
+        .theme-rose .mine-tile { background-color: #fbb6ce; }
+        .theme-rose .mine-tile.revealed { background-color: #ed64a6; }
+        .theme-grape .mine-tile { background-color: #b794f4; }
+        .theme-grape .mine-tile.revealed { background-color: #805ad5; }
+        .tool-btn {
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        .tool-btn.active {
+            border-color: #f6ad55;
+            background-color: #4a5568;
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(246, 173, 85, 0.5);
+        }
+        .setting-option {
+            background-color: #2d3748;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        .setting-option label { display: block; margin-bottom: 8px; font-weight: bold; }
+        .setting-option input[type="radio"],
+        .setting-option input[type="checkbox"] { margin-right: 5px; }
+        .setting-option input[type="number"] {
+            width: 60px;
+            background-color: #4a5568;
+            border: 1px solid #718096;
+            border-radius: 4px;
+            padding: 2px 5px;
+            color: white;
+        }
+        .color-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: inline-block;
+            cursor: pointer;
+            margin: 2px;
+            border: 2px solid transparent;
+        }
+        .color-swatch.selected {
+            border-color: #fff;
+            box-shadow: 0 0 5px #fff;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen">
+    <!-- 主選單 -->
+    <div id="menu-screen" class="game-screen">
+        <h1 class="text-5xl font-bold mb-12 text-white">🕹️ 小遊戲合集</h1>
+        <div class="space-y-6">
+            <button onclick="showGame('snakesettings')" 
+                    class="w-64 px-8 py-4 bg-green-600 text-white font-bold rounded-lg shadow-lg hover:bg-green-700 transition duration-200 text-2xl">
+                🐍 貪食蛇
+            </button>
+            <button onclick="showGame('minesweepersettings')" 
+                    class="w-64 px-8 py-4 bg-blue-600 text-white font-bold rounded-lg shadow-lg hover:bg-blue-700 transition duration-200 text-2xl">
+                💣 踩地雷
+            </button>
+        </div>
+    </div>
+
+    <!-- 貪食蛇設定 -->
+    <div id="snake-settings-screen" class="game-screen hidden">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
+            <h1 class="text-3xl font-bold mb-6 text-white text-center">🐍 貪食蛇設定</h1>
+            <div class="setting-option">
+                <label>模式</label>
+                <label><input type="radio" id="snake-mode-classic" name="snake-mode" value="classic" checked> 一般模式</label>
+                <label><input type="radio" id="snake-mode-dual" name="snake-mode" value="dual"> 🔄 雙頭蛇模式</label>
+            </div>
+            <div class="setting-option">
+                <label>速度</label>
+                <label><input type="radio" id="snake-speed-slow" name="snake-speed" value="200" checked> 慢</label>
+                <label><input type="radio" id="snake-speed-med" name="snake-speed" value="120"> 中</label>
+                <label><input type="radio" id="snake-speed-fast" name="snake-speed" value="70"> 快</label>
+            </div>
+            <div class="setting-option">
+                <label>食物數量</label>
+                <label><input type="radio" id="snake-food-1" name="snake-food" value="1" checked> 1</label>
+                <label><input type="radio" id="snake-food-3" name="snake-food" value="3"> 3</label>
+                <label><input type="radio" id="snake-food-5" name="snake-food" value="5"> 5</label>
+                <label><input type="radio" id="snake-food-10" name="snake-food" value="10"> 10</label>
+                <label><input type="radio" id="snake-food-random" name="snake-food" value="random"> 隨機</label>
+            </div>
+            <div class="mt-6 flex flex-col space-y-3">
+                <button onclick="startSnakeGame()" 
+                        class="w-full px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition text-xl">
+                    🚀 開始遊戲
+                </button>
+                <button onclick="showGame('menu')" 
+                        class="w-full px-6 py-2 bg-gray-500 text-white font-bold rounded-lg hover:bg-gray-600 transition">
+                    ← 返回
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 踩地雷設定 (保持原樣) -->
+    <div id="minesweeper-settings-screen" class="game-screen hidden">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-lg">
+            <h1 class="text-3xl font-bold mb-6 text-white text-center">💣 踩地雷設定</h1>
+            <div class="setting-option">
+                <label>地圖大小</label>
+                <label><input type="radio" id="mine-size-9" name="mine-size" value="9x9" checked onchange="updateMineCustom(false)"> 9x9 (10雷)</label>
+                <label><input type="radio" id="mine-size-18" name="mine-size" value="18x18" onchange="updateMineCustom(false)"> 18x18 (60雷)</label>
+                <label><input type="radio" id="mine-size-27" name="mine-size" value="27x27" onchange="updateMineCustom(false)"> 27x27 (150雷)</label>
+                <label><input type="radio" id="mine-size-custom" name="mine-size" value="custom" onchange="updateMineCustom(true)"> 自訂</label>
+                <div id="custom-mine-inputs" class="mt-2 space-x-2 hidden">
+                    <label>寬:<input type="number" id="mine-width" min="5" max="50" value="16"></label>
+                    <label>高:<input type="number" id="mine-height" min="5" max="50" value="16"></label>
+                    <label>雷:<input type="number" id="mine-count-custom" min="1" value="40"></label>
+                </div>
+            </div>
+            <div class="setting-option">
+                <label>主題</label>
+                <div id="color-palette" class="flex flex-wrap">
+                    <span class="color-swatch selected" style="background-color: #718096" data-theme="theme-dark" onclick="selectColor(this)"></span>
+                    <span class="color-swatch" style="background-color: #c0c0c0" data-theme="theme-classic" onclick="selectColor(this)"></span>
+                    <span class="color-swatch" style="background-color: #68d391" data-theme="theme-forest" onclick="selectColor(this)"></span>
+                    <span class="color-swatch" style="background-color: #63b3ed" data-theme="theme-ocean" onclick="selectColor(this)"></span>
+                    <span class="color-swatch" style="background-color: #f6ad55" data-theme="theme-sunset" onclick="selectColor(this)"></span>
+                    <span class="color-swatch" style="background-color: #fbb6ce" data-theme="theme-rose" onclick="selectColor(this)"></span>
+                    <span class="color-swatch" style="background-color: #b794f4" data-theme="theme-grape" onclick="selectColor(this)"></span>
+                </div>
+            </div>
+            <div class="mt-6 flex flex-col space-y-3">
+                <button onclick="startMinesweeperGame()" 
+                        class="w-full px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition text-xl">
+                    🚀 開始遊戲
+                </button>
+                <button onclick="showGame('menu')" 
+                        class="w-full px-6 py-2 bg-gray-500 text-white font-bold rounded-lg hover:bg-gray-600 transition">
+                    ← 返回
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 貪食蛇遊戲 -->
+    <div id="snake-game" class="game-screen hidden">
+        <h1 class="text-3xl font-bold mb-2 text-white">🐍 貪食蛇</h1>
+        <div class="flex justify-between w-full max-w-md mb-2 text-xl">
+            <div><span id="snake-score" class="font-bold text-yellow-400">0</span></div>
+            <button onclick="snakeGame.reset()" 
+                    class="px-4 py-1 bg-yellow-500 text-black font-bold rounded hover:bg-yellow-600 transition">
+                🔄 重玩
+            </button>
+        </div>
+        <canvas id="snake-canvas" width="400" height="400"></canvas>
+        <div id="snake-status-msg" class="h-6 mt-1 text-yellow-300 font-bold"></div>
+        <button onclick="showGame('menu')" 
+                class="mt-2 px-6 py-2 bg-gray-500 text-white font-bold rounded-lg hover:bg-gray-600 transition">
+            ← 返回主選單
+        </button>
+    </div>
+
+    <!-- 踩地雷遊戲 -->
+    <div id="minesweeper-game" class="game-screen hidden">
+        <h1 class="text-3xl font-bold mb-2 text-white">💣 踩地雷</h1>
+        <div class="flex justify-between w-full max-w-sm mb-2 text-xl bg-gray-700 p-3 rounded-lg">
+            <div><span id="mine-count" class="font-bold text-red-400">40</span></div>
+            <div id="mine-status" class="font-bold text-yellow-400"></div>
+            <div><span id="mine-timer" class="font-bold text-white">0</span></div>
+        </div>
+        <div class="flex space-x-4 mb-3">
+            <button id="btn-tool-normal" class="tool-btn active px-3 py-1 bg-gray-600 rounded text-white font-bold flex flex-col items-center" onclick="minesweeperGame.activateTool('normal')">
+                <span>👆</span>
+            </button>
+            <button id="btn-tool-scout" class="tool-btn px-3 py-1 bg-gray-600 rounded text-white font-bold flex flex-col items-center" onclick="minesweeperGame.activateTool('scout')">
+                <span>🔍</span>
+                <span class="text-xs text-yellow-300" id="count-scout">x3</span>
+            </button>
+            <button id="btn-tool-scout-plus" class="tool-btn px-3 py-1 bg-gray-600 rounded text-white font-bold flex flex-col items-center" onclick="minesweeperGame.activateTool('scoutPlus')">
+                <span>🎯</span>
+                <span class="text-xs text-yellow-300" id="count-scout-plus">x1</span>
+            </button>
+        </div>
+        <div id="minesweeper-grid" class="minesweeper-grid"></div>
+        <button onclick="minesweeperGame.init()" 
+                class="mt-4 px-6 py-2 bg-yellow-500 text-black font-bold rounded-lg hover:bg-yellow-600 transition">
+            🔄 新遊戲
+        </button>
+        <button onclick="showGame('menu')" 
+                class="mt-4 px-6 py-2 bg-gray-500 text-white font-bold rounded-lg hover:bg-gray-600 transition">
+            ← 返回主選單
+        </button>
+    </div>
+
+    <script>
+        let currentInterval = null;
+        const menuScreen = document.getElementById('menu-screen');
+        const snakeScreen = document.getElementById('snake-game');
+        const minesweeperScreen = document.getElementById('minesweeper-game');
+        const snakeSettingsScreen = document.getElementById('snake-settings-screen');
+        const minesweeperSettingsScreen = document.getElementById('minesweeper-settings-screen');
+        const mineGridEl = document.getElementById('minesweeper-grid');
+
+        // 全域金幣系統 (移除本地顯示)
+        let globalCoins = parseInt(localStorage.getItem('globalCoins')) || 0;
+        function addCoins(amount) {
+            globalCoins += amount;
+            localStorage.setItem('globalCoins', globalCoins);
+            // 通知父頁面
+            window.parent.postMessage({
+                type: 'addCoins',
+                amount: amount
+            }, '*');
+        }
+
+        function showGame(gameName, settings) {
+            menuScreen.classList.add('hidden');
+            snakeScreen.classList.add('hidden');
+            minesweeperScreen.classList.add('hidden');
+            snakeSettingsScreen.classList.add('hidden');
+            minesweeperSettingsScreen.classList.add('hidden');
+            
+            if (gameName === 'menu') {
+                menuScreen.classList.remove('hidden');
+            } else if (gameName === 'snakesettings') {
+                snakeSettingsScreen.classList.remove('hidden');
+            } else if (gameName === 'minesweepersettings') {
+                minesweeperSettingsScreen.classList.remove('hidden');
+            } else if (gameName === 'snake') {
+                snakeScreen.classList.remove('hidden');
+                snakeGame.init(settings);
+            } else if (gameName === 'minesweeper') {
+                minesweeperScreen.classList.remove('hidden');
+                minesweeperGame.init(settings);
+            }
+        }
+
+        // 貪食蛇設定與開始 (保持原樣)
+        function startSnakeGame() {
+            const speed = document.querySelector('input[name="snake-speed"]:checked').value;
+            let foodCount = document.querySelector('input[name="snake-food"]:checked').value;
+            const mode = document.querySelector('input[name="snake-mode"]:checked').value;
+            
+            if (foodCount === 'random') {
+                foodCount = [1, 3, 5, 10][Math.floor(Math.random() * 4)];
+            } else {
+                foodCount = parseInt(foodCount);
+            }
+            
+            showGame('snake', { speed: parseInt(speed), foodCount, mode });
+        }
+
+        function startMinesweeperGame() {
+            const sizeChoice = document.querySelector('input[name="mine-size"]:checked').value;
+            let width, height, mines;
+            
+            if (sizeChoice === '9x9') {
+                width = 9; height = 9; mines = 10;
+            } else if (sizeChoice === '18x18') {
+                width = 18; height = 18; mines = 60;
+            } else if (sizeChoice === '27x27') {
+                width = 27; height = 27; mines = 150;
+            } else {
+                width = parseInt(document.getElementById('mine-width').value);
+                height = parseInt(document.getElementById('mine-height').value);
+                mines = parseInt(document.getElementById('mine-count-custom').value);
+                if (width < 5 || height < 5 || mines < 1) {
+                    alert('5x5 至少1顆雷');
+                    return;
+                }
+            }
+            
+            const maxMines = Math.floor((width * height) * 0.75);
+            if (mines > maxMines) {
+                alert(`${width}x${height} 最大 ${maxMines} 顆雷 (75%)`);
+                return;
+            }
+            
+            const colorTheme = document.querySelector('#color-palette .selected').dataset.theme;
+            showGame('minesweeper', { width, height, mines, colorTheme });
+        }
+
+        function updateMineCustom(isCustom) {
+            document.getElementById('custom-mine-inputs').classList.toggle('hidden', !isCustom);
+            if (isCustom) {
+                document.getElementById('mine-size-custom').checked = true;
+            }
+        }
+
+        function selectColor(swatch) {
+            document.querySelectorAll('#color-palette .color-swatch').forEach(el => el.classList.remove('selected'));
+            swatch.classList.add('selected');
+        }
+
+        // 🆕 修正版貪食蛇 - 雙頭蛇完美實作
+        const snakeGame = {
+            canvas: document.getElementById('snake-canvas'),
+            ctx: document.getElementById('snake-canvas').getContext('2d'),
+            scoreEl: document.getElementById('snake-score'),
+            statusEl: document.getElementById('snake-status-msg'),
+            GRIDSIZE: 20,
+            TILESIZE: 20,
+            snake: [],
+            direction: { x: 0, y: 0 },
+            foodItems: [],
+            foodTargetCount: 1,
+            score: 0,
+            gameRunning: false,
+            mode: 'classic',
+            isPaused: false,
+            
+            init(settings) {
+                const speed = settings.speed || 120;
+                this.foodTargetCount = settings.foodCount || 1;
+                this.mode = settings.mode || 'classic';
+                
+                this.snake = [{ x: 10, y: 10 }];
+                this.direction = { x: 0, y: 0 };
+                this.foodItems = [];
+                this.score = 0;
+                this.scoreEl.textContent = '0';
+                this.statusEl.textContent = this.mode === 'dual' ? '🔄 雙頭蛇模式' : '🐍 一般模式';
+                this.isPaused = false;
+                
+                for (let i = 0; i < this.foodTargetCount; i++) {
+                    this.placeFood();
+                }
+                
+                this.gameRunning = true;
+                if (currentInterval) clearInterval(currentInterval);
+                currentInterval = setInterval(this.gameLoop.bind(this), speed);
+                
+                document.removeEventListener('keydown', this.handleInput);
+                document.addEventListener('keydown', this.handleInput.bind(this));
+            },
+            
+            reset() {
+                const currentSettings = {
+                    speed: 120,
+                    foodCount: this.foodTargetCount,
+                    mode: this.mode
+                };
+                if (currentInterval) clearInterval(currentInterval);
+                this.init(currentSettings);
+            },
+            
+            gameLoop() {
+                if (!this.gameRunning || this.isPaused) return;
+                
+                const head = {
+                    x: this.snake[0].x + this.direction.x,
+                    y: this.snake[0].y + this.direction.y
+                };
+                
+                if (this.checkCollision(head)) {
+                    this.gameOver();
+                    return;
+                }
+                
+                this.snake.unshift(head);
+                
+                const eatenIndex = this.foodItems.findIndex(f => f.x === head.x && f.y === head.y);
+                if (eatenIndex !== -1) {
+                    this.score++;
+                    this.scoreEl.textContent = this.score;
+                    this.foodItems.splice(eatenIndex, 1);
+                    this.placeFood();
+                    
+                    // 🆕 雙頭蛇特效：吃到食物後頭尾互換
+                    if (this.mode === 'dual') {
+                        this.reverseSnake();
+                    }
+                } else {
+                    this.snake.pop();
+                }
+                
+                this.draw();
+            },
+            
+            // 🆕 雙頭蛇核心機制：頭變尾巴，尾巴變頭部，暫停0.3334秒
+            reverseSnake() {
+                // 1. 反轉整個蛇身
+                this.snake.reverse();
+                
+                // 2. 重新計算移動方向（從新頭部指向新頸部）
+                if (this.snake.length > 1) {
+                    const newHead = this.snake[0];
+                    const newNeck = this.snake[1];
+                    this.direction = {
+                        x: newHead.x > newNeck.x ? 1 : newHead.x < newNeck.x ? -1 : 0,
+                        y: newHead.y > newNeck.y ? 1 : newHead.y < newNeck.y ? -1 : 0
+                    };
+                }
+                
+                // 3. 暫停0.3334秒 + 顯示特效
+                this.isPaused = true;
+                this.statusEl.textContent = '🔄 頭尾互換中...';
+                this.draw();
+                
+                setTimeout(() => {
+                    this.isPaused = false;
+                    this.statusEl.textContent = '🔄 雙頭蛇模式';
+                }, 333.4);
+            },
+            
+            checkCollision(head) {
+                if (head.x < 0 || head.x >= this.GRIDSIZE || head.y < 0 || head.y >= this.GRIDSIZE) return true;
+                for (let i = 1; i < this.snake.length; i++) {
+                    if (head.x === this.snake[i].x && head.y === this.snake[i].y) return true;
+                }
+                return false;
+            },
+            
+            gameOver() {
+                this.gameRunning = false;
+                if (currentInterval) {
+                    clearInterval(currentInterval);
+                    currentInterval = null;
+                }
+                this.statusEl.textContent = `遊戲結束! 分數: ${this.score}`;
+                
+                // 金幣計算系統
+                let earnedCoins = 0;
+                if (this.mode === 'classic') {
+                    earnedCoins = Math.ceil(this.score / 2);
+                    if (this.score >= 30) {
+                        earnedCoins = 15 + (this.score - 30);
+                    }
+                } else { // dual mode
+                    earnedCoins = this.score;
+                    if (this.score >= 30) {
+                        earnedCoins = 30 + (this.score - 30) * 2;
+                    }
+                }
+                
+                if (earnedCoins > 0) {
+                    addCoins(earnedCoins);
+                    this.statusEl.innerHTML += `<br><span style="color: gold; font-size: 1.2em; font-weight: bold;">✨ 獲得 ${earnedCoins} 金幣!</span>`;
+                }
+            },
+            
+            placeFood() {
+                let onSnake = true;
+                let food;
+                while (onSnake) {
+                    food = {
+                        x: Math.floor(Math.random() * this.GRIDSIZE),
+                        y: Math.floor(Math.random() * this.GRIDSIZE)
+                    };
+                    onSnake = this.snake.some(seg => seg.x === food.x && seg.y === food.y);
+                    if (!onSnake) {
+                        onSnake = this.foodItems.some(f => f.x === food.x && f.y === food.y);
+                    }
+                }
+                this.foodItems.push(food);
+            },
+            
+            draw() {
+                // 背景格子
+                for (let y = 0; y < this.GRIDSIZE; y++) {
+                    for (let x = 0; x < this.GRIDSIZE; x++) {
+                        this.ctx.fillStyle = (x + y) % 2 === 0 ? '#333' : '#3a3a3a';
+                        this.ctx.fillRect(x * this.TILESIZE, y * this.TILESIZE, this.TILESIZE, this.TILESIZE);
+                    }
+                }
+                
+                // 食物
+                this.ctx.fillStyle = '#e53e3e';
+                this.foodItems.forEach(food => {
+                    this.ctx.fillRect(food.x * this.TILESIZE, food.y * this.TILESIZE, this.TILESIZE, this.TILESIZE);
+                });
+                
+                // 蛇身（頭部高亮）
+                this.snake.forEach((seg, index) => {
+                    this.ctx.fillStyle = index === 0 ? '#48bb78' : '#68d391';
+                    this.ctx.fillRect(seg.x * this.TILESIZE, seg.y * this.TILESIZE, this.TILESIZE, this.TILESIZE);
+                });
+            },
+            
+            handleInput(e) {
+                if (this.isPaused) return;
+                
+                const goingUp = this.direction.y === -1;
+                const goingDown = this.direction.y === 1;
+                const goingLeft = this.direction.x === -1;
+                const goingRight = this.direction.x === 1;
+                
+                switch(e.key) {
+                    case 'ArrowUp':
+                    case 'w':
+                        if (!goingDown) this.direction = { x: 0, y: -1 };
+                        break;
+                    case 'ArrowDown':
+                    case 's':
+                        if (!goingUp) this.direction = { x: 0, y: 1 };
+                        break;
+                    case 'ArrowLeft':
+                    case 'a':
+                        if (!goingRight) this.direction = { x: -1, y: 0 };
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                        if (!goingLeft) this.direction = { x: 1, y: 0 };
+                        break;
+                }
+            }
+        };
+
+        // 🆕 修正版踩地雷 - 數字周圍特效 + 自動開啟
+        const minesweeperGame = {
+            gridEl: document.getElementById('minesweeper-grid'),
+            countEl: document.getElementById('mine-count'),
+            statusEl: document.getElementById('mine-status'),
+            timerEl: document.getElementById('mine-timer'),
+            btnNormal: document.getElementById('btn-tool-normal'),
+            btnScout: document.getElementById('btn-tool-scout'),
+            btnScoutPlus: document.getElementById('btn-tool-scout-plus'),
+            countScoutEl: document.getElementById('count-scout'),
+            countScoutPlusEl: document.getElementById('count-scout-plus'),
+            GRIDW: 16,
+            GRIDH: 16,
+            MINECOUNT: 40,
+            board: [],
+            revealedCount: 0,
+            flagsPlaced: 0,
+            gameRunning: false,
+            firstClick: true,
+            timer: 0,
+            activeTool: 'normal',
+            itemCounts: { scout: 3, scoutPlus: 1 },
+            currentTheme: 'theme-dark',
+            
+            init(settings) {
+                if (settings) {
+                    if (settings.width) this.GRIDW = settings.width;
+                    if (settings.height) this.GRIDH = settings.height;
+                    if (settings.mines !== undefined) this.MINECOUNT = settings.mines;
+                    if (settings.colorTheme) {
+                        this.currentTheme = settings.colorTheme;
+                        this.gridEl.className = `minesweeper-grid ${this.currentTheme}`;
+                    }
+                }
+                
+                this.itemCounts = { scout: 3, scoutPlus: 1 };
+                this.activeTool = 'normal';
+                this.updateItemUI();
+                
+                const containerWidth = Math.min(window.innerWidth * 0.9, 600);
+                const tileSize = Math.floor(containerWidth / this.GRIDW);
+                
+                this.gridEl.style.gridTemplateColumns = `repeat(${this.GRIDW}, 1fr)`;
+                this.gridEl.style.width = `${this.GRIDW * tileSize}px`;
+                this.gridEl.style.height = `${this.GRIDH * tileSize}px`;
+                
+                let style = document.getElementById('mine-tile-style');
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'mine-tile-style';
+                    document.head.appendChild(style);
+                }
+                style.innerHTML = `.mine-tile { width: ${tileSize}px; height: ${tileSize}px; font-size: ${tileSize * 0.7}px; }`;
+                
+                this.gridEl.innerHTML = '';
+                this.board = Array(this.GRIDH).fill().map(() => Array(this.GRIDW).fill(0));
+                
+                this.revealedCount = 0;
+                this.flagsPlaced = this.MINECOUNT;
+                this.countEl.textContent = this.flagsPlaced;
+                this.statusEl.textContent = '';
+                this.gameRunning = true;
+                this.firstClick = true;
+                this.timer = 0;
+                this.timerEl.textContent = '0';
+                
+                if (currentInterval) clearInterval(currentInterval);
+                currentInterval = setInterval(() => {
+                    if (this.gameRunning) {
+                        this.timer++;
+                        this.timerEl.textContent = this.timer;
+                    }
+                }, 1000);
+                
+                this.createBoard();
+            },
+            
+            // 🆕 滑鼠懸停特效 - 數字方塊顯示周圍8格
+            addHoverEffect() {
+                this.gridEl.querySelectorAll('.mine-tile').forEach(tile => {
+                    tile.addEventListener('mouseenter', (e) => {
+                        if (!this.gameRunning || tile.dataset.revealed !== 'true') return;
+                        const num = parseInt(tile.textContent);
+                        if (!num || isNaN(num)) return;
+                        
+                        // 為周圍8格添加特效
+                        const x = parseInt(tile.dataset.x);
+                        const y = parseInt(tile.dataset.y);
+                        for (let dy = -1; dy <= 1; dy++) {
+                            for (let dx = -1; dx <= 1; dx++) {
+                                if (dx === 0 && dy === 0) continue;
+                                const nx = x + dx, ny = y + dy;
+                                if (nx >= 0 && nx < this.GRIDW && ny >= 0 && ny < this.GRIDH) {
+                                    const neighbor = this.gridEl.children[ny * this.GRIDW + nx];
+                                    if (neighbor.dataset.revealed === 'false' && neighbor.textContent !== '🚩') {
+                                        neighbor.classList.add('chord-hover');
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    tile.addEventListener('mouseleave', (e) => {
+                        this.gridEl.querySelectorAll('.chord-hover').forEach(el => {
+                            el.classList.remove('chord-hover');
+                        });
+                    });
+                });
+            },
+            
+            updateItemUI() {
+                this.countScoutEl.textContent = `x${this.itemCounts.scout}`;
+                this.countScoutPlusEl.textContent = `x${this.itemCounts.scoutPlus}`;
+                
+                [this.btnNormal, this.btnScout, this.btnScoutPlus].forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                if (this.activeTool === 'normal') this.btnNormal.classList.add('active');
+                if (this.activeTool === 'scout') this.btnScout.classList.add('active');
+                if (this.activeTool === 'scoutPlus') this.btnScoutPlus.classList.add('active');
+            },
+            
+            activateTool(tool) {
+                if (!this.gameRunning) return;
+                if (tool === 'scout' && this.itemCounts.scout === 0) return;
+                if (tool === 'scoutPlus' && this.itemCounts.scoutPlus === 0) return;
+                
+                this.activeTool = tool;
+                this.updateItemUI();
+                this.statusEl.textContent = tool === 'scout' ? '🔍偵測模式' : 
+                                          tool === 'scoutPlus' ? '🎯精準偵測' : '';
+            },
+            
+            createBoard() {
+                for (let y = 0; y < this.GRIDH; y++) {
+                    for (let x = 0; x < this.GRIDW; x++) {
+                        const tile = document.createElement('div');
+                        tile.className = 'mine-tile';
+                        tile.dataset.x = x;
+                        tile.dataset.y = y;
+                        tile.dataset.revealed = 'false';
+                        tile.addEventListener('click', (e) => this.handleClick(parseInt(tile.dataset.x), parseInt(tile.dataset.y)));
+                        tile.addEventListener('contextmenu', (e) => {
+                            e.preventDefault();
+                            this.handleRightClick(e, parseInt(tile.dataset.x), parseInt(tile.dataset.y));
+                        });
+                        this.gridEl.appendChild(tile);
+                    }
+                }
+                // 🆕 添加滑鼠懸停特效
+                this.addHoverEffect();
+            },
+            
+            // 🆕 修正版 handleClick - 支援數字自動開啟
+            handleClick(x, y) {
+                if (!this.gameRunning) return;
+                
+                const tileEl = this.gridEl.children[y * this.GRIDW + x];
+                if (this.firstClick) {
+                    this.firstClick = false;
+                    this.placeMinesAndNumbers(x, y);
+                }
+                
+                if (this.activeTool === 'scout') {
+                    this.useScout(x, y);
+                    return;
+                }
+                if (this.activeTool === 'scoutPlus') {
+                    this.useScoutPlus(x, y);
+                    return;
+                }
+                
+                if (tileEl.dataset.revealed === 'true') {
+                    // 🆕 點擊已開啟數字 → 檢查是否可自動開啟周圍
+                    const tileValue = parseInt(tileEl.textContent);
+                    if (!isNaN(tileValue) && tileValue > 0) {
+                        if (this.canAutoReveal(x, y)) {
+                            this.chord(x, y);
+                        }
+                    }
+                    return;
+                }
+                
+                if (tileEl.textContent) return;
+                
+                const tileValue = this.board[y][x];
+                if (tileValue === 'm') {
+                    this.gameOver(false);
+                    return;
+                }
+                
+                this.reveal(x, y);
+                this.checkWin();
+            },
+            
+            // 🆕 檢查周圍旗標數量是否等於數字 → 可自動開啟
+            canAutoReveal(x, y) {
+                const tileValue = parseInt(this.gridEl.children[y * this.GRIDW + x].textContent);
+                let flagCount = 0;
+                
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        if (dx === 0 && dy === 0) continue;
+                        const nx = x + dx, ny = y + dy;
+                        if (nx >= 0 && nx < this.GRIDW && ny >= 0 && ny < this.GRIDH) {
+                            const neighbor = this.gridEl.children[ny * this.GRIDW + nx];
+                            if (neighbor.textContent === '🚩') flagCount++;
+                        }
+                    }
+                }
+                return flagCount === tileValue;
+            },
+            
+            placeMinesAndNumbers(startX, startY) {
+                let minesPlaced = 0;
+                while (minesPlaced < this.MINECOUNT) {
+                    const x = Math.floor(Math.random() * this.GRIDW);
+                    const y = Math.floor(Math.random() * this.GRIDH);
+                    const isStartArea = Math.abs(x - startX) <= 1 && Math.abs(y - startY) <= 1;
+                    
+                    if (this.board[y][x] !== 'm' && !isStartArea) {
+                        this.board[y][x] = 'm';
+                        minesPlaced++;
+                    }
+                }
+                
+                for (let y = 0; y < this.GRIDH; y++) {
+                    for (let x = 0; x < this.GRIDW; x++) {
+                        if (this.board[y][x] === 'm') continue;
+                        let count = 0;
+                        for (let dy = -1; dy <= 1; dy++) {
+                            for (let dx = -1; dx <= 1; dx++) {
+                                if (dx === 0 && dy === 0) continue;
+                                const nx = x + dx, ny = y + dy;
+                                if (nx >= 0 && nx < this.GRIDW && ny >= 0 && ny < this.GRIDH && 
+                                    this.board[ny][nx] === 'm') count++;
+                            }
+                        }
+                        this.board[y][x] = count;
+                    }
+                }
+            },
+            
+            // 其他方法保持原樣 (useScout, useScoutPlus, handleRightClick, chord, reveal, checkWin, gameOver)
+            useScout(x, y) {
+                if (this.itemCounts.scout === 0) return;
+                let minesInArea = 0;
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        const nx = x + dx, ny = y + dy;
+                        if (nx >= 0 && nx < this.GRIDW && ny >= 0 && ny < this.GRIDH && this.board[ny][nx] === 'm') {
+                            minesInArea++;
+                        }
+                    }
+                }
+                alert(`3x3範圍內有 ${minesInArea} 顆雷`);
+                this.itemCounts.scout--;
+                this.activeTool = 'normal';
+                this.updateItemUI();
+                this.statusEl.textContent = '';
+            },
+            
+            useScoutPlus(x, y) {
+                if (this.itemCounts.scoutPlus === 0) return;
+                const isMine = this.board[y][x] === 'm';
+                const tileEl = this.gridEl.children[y * this.GRIDW + x];
+                if (isMine) {
+                    alert('💣 這是雷!');
+                } else if (tileEl.textContent !== '🚩') {
+                    tileEl.textContent = '🚩';
+                    this.flagsPlaced--;
+                    this.countEl.textContent = this.flagsPlaced;
+                    alert('✅ 安全位置');
+                } else {
+                    alert('❌ 這裡已標記');
+                }
+                this.itemCounts.scoutPlus--;
+                this.activeTool = 'normal';
+                this.updateItemUI();
+                this.statusEl.textContent = '';
+            },
+            
+            handleRightClick(e, x, y) {
+                e.preventDefault();
+                if (!this.gameRunning) return;
+                const tileEl = this.gridEl.children[y * this.GRIDW + x];
+                if (tileEl.dataset.revealed === 'true') return;
+                if (tileEl.textContent === '🚩') {
+                    tileEl.textContent = '';
+                    this.flagsPlaced++;
+                } else {
+                    tileEl.textContent = '🚩';
+                    this.flagsPlaced--;
+                }
+                this.countEl.textContent = this.flagsPlaced;
+            },
+            
+            chord(x, y) {
+                const tileValue = this.board[y][x];
+                if (tileValue === 0) return;
+                
+                let flagCount = 0;
+                const neighbors = [];
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        if (dx === 0 && dy === 0) continue;
+                        const nx = x + dx, ny = y + dy;
+                        if (nx >= 0 && nx < this.GRIDW && ny >= 0 && ny < this.GRIDH) {
+                            const tileEl = this.gridEl.children[ny * this.GRIDW + nx];
+                            neighbors.push({ x: nx, y: ny, el: tileEl });
+                            if (tileEl.textContent === '🚩') flagCount++;
+                        }
+                    }
+                }
+                
+                if (flagCount === tileValue) {
+                    let hitMine = false;
+                    for (const neighbor of neighbors) {
+                        if (neighbor.el.textContent !== '🚩' && neighbor.el.dataset.revealed === 'false') {
+                            if (this.board[neighbor.y][neighbor.x] === 'm') {
+                                hitMine = true;
+                                neighbor.el.classList.add('mine');
+                                neighbor.el.textContent = '💣';
+                            } else {
+                                this.reveal(neighbor.x, neighbor.y);
+                            }
+                        }
+                    }
+                    if (hitMine) {
+                        this.gameOver(false);
+                    } else {
+                        this.checkWin();
+                    }
+                }
+            },
+            
+            reveal(x, y) {
+                if (x < 0 || x >= this.GRIDW || y < 0 || y >= this.GRIDH) return;
+                const tileEl = this.gridEl.children[y * this.GRIDW + x];
+                if (tileEl.dataset.revealed === 'true' || tileEl.textContent) return;
+                
+                const tileValue = this.board[y][x];
+                tileEl.classList.add('revealed');
+                tileEl.dataset.revealed = 'true';
+                this.revealedCount++;
+                
+                if (tileValue > 0) {
+                    tileEl.textContent = tileValue;
+                    tileEl.classList.add(`color-${tileValue}`);
+                } else if (tileValue === 0) {
+                    tileEl.textContent = '';
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            if (dx !== 0 || dy !== 0) {
+                                this.reveal(x + dx, y + dy);
+                            }
+                        }
+                    }
+                }
+            },
+            
+            checkWin() {
+                const totalSafeTiles = this.GRIDW * this.GRIDH - this.MINECOUNT;
+                if (this.revealedCount >= totalSafeTiles) {
+                    this.gameOver(true);
+                }
+            },
+            
+            gameOver(win) {
+                this.gameRunning = false;
+                if (currentInterval) {
+                    clearInterval(currentInterval);
+                    currentInterval = null;
+                }
+                
+                if (win) {
+                    this.statusEl.textContent = `🎉 勝利! 用時 ${this.timer} 秒`;
+                } else {
+                    this.statusEl.textContent = `💥 踩到地雷!`;
+                }
+                
+                for (let y = 0; y < this.GRIDH; y++) {
+                    for (let x = 0; x < this.GRIDW; x++) {
+                        if (this.board[y][x] === 'm') {
+                            const tileEl = this.gridEl.children[y * this.GRIDW + x];
+                            if (!tileEl.textContent) {
+                                tileEl.classList.add('mine');
+                                tileEl.textContent = '💣';
+                            }
+                        }
+                    }
+                }
+                
+                let correctFlags = 0;
+                for (let y = 0; y < this.GRIDH; y++) {
+                    for (let x = 0; x < this.GRIDW; x++) {
+                        const tileEl = this.gridEl.children[y * this.GRIDW + x];
+                        if (this.board[y][x] === 'm' && tileEl.textContent === '🚩') {
+                            correctFlags++;
+                        }
+                    }
+                }
+                
+                if (correctFlags > 0) {
+                    addCoins(correctFlags);
+                    this.statusEl.innerHTML += `<br><span style="color: gold; font-size: 1.2em; font-weight: bold;">✨ 標記正確 ${correctFlags} 顆地雷，獲得 ${correctFlags} 金幣!</span>`;
+                }
+            }
+        };
+
+        showGame('menu');
+    </script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚔️ Roguelike 遊戲中心</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%);
+            color: white;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ✅ 移除主遊戲介面金幣顯示 - 樣式全刪除 */
+
+        /* 主選單 */
+        #mainMenu {
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            height: 100vh; gap: 50px; text-align: center;
+        }
+        .game-title {
+            font-size: 4rem; font-weight: bold;
+            background: linear-gradient(45deg, #f1c40f, #e67e22, #3498db);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(241,196,15,0.5); animation: glow 2s ease-in-out infinite alternate;
+        }
+        @keyframes glow { from { filter: drop-shadow(0 0 10px rgba(241,196,15,0.5)); } to { filter: drop-shadow(0 0 20px rgba(241,196,15,0.8)); } }
+        
+        .game-buttons { display: flex; gap: 40px; flex-wrap: wrap; justify-content: center; }
+        .game-btn {
+            padding: 25px 50px; font-size: 1.8rem; font-weight: bold; border: none; border-radius: 30px;
+            cursor: pointer; transition: all 0.3s; box-shadow: 0 15px 35px rgba(0,0,0,0.3); min-width: 250px;
+        }
+        .roguelike-btn { background: linear-gradient(45deg, #e74c3c, #c0392b); color: white; }
+        .minigame-btn { background: linear-gradient(45deg, #3498db, #2980b9); color: white; }
+        .game-btn:hover { transform: translateY(-12px) scale(1.05); box-shadow: 0 25px 50px rgba(0,0,0,0.4); }
+
+        /* 🆕 金幣提示 - 灰底點擊顯示 */
+        .coin-hint {
+            background: rgba(128,128,128,0.9);
+            color: #666;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid #555;
+            backdrop-filter: blur(10px);
+            user-select: none;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        .coin-hint:hover {
+            background: rgba(100,100,100,0.9);
+            color: #999;
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(0,0,0,0.4);
+        }
+        .coin-hint.revealed {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            color: white !important;
+            border-color: #f1c40f;
+            animation: revealGlow 1s ease-in-out;
+            box-shadow: 0 15px 45px rgba(243,156,18,0.6);
+        }
+        @keyframes revealGlow {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* 遊戲容器 */
+        .game-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; z-index: 1000; }
+        .game-container.active { display: block; }
+
+        /* 返回按鈕 */
+        .back-btn {
+            position: absolute; top: 20px; left: 20px; z-index: 1001; padding: 15px 30px;
+            background: rgba(0,0,0,0.9); color: white; border: none; border-radius: 25px;
+            font-weight: bold; cursor: pointer; backdrop-filter: blur(10px); transition: all 0.3s;
+        }
+        .back-btn:hover { background: rgba(0,0,0,1); transform: scale(1.05); }
+
+        /* ✅ 移除獎勵通知樣式 */
+    </style>
+</head>
+<body>
+    <!-- ✅ 移除主遊戲介面金幣顯示 HTML -->
+    <!-- ❌ <div id="coin-display">...</div> 已刪除 -->
+    <!-- ❌ <div id="reward-notification">...</div> 已刪除 -->
+
+    <!-- 主選單 -->
+    <div id="mainMenu">
+        <h1 class="game-title">⚔️ Roguelike 遊戲中心</h1>
+        <div class="game-buttons">
+            <button id="roguelikeBtn" class="game-btn roguelike-btn">⚔️ Roguelike 主遊戲</button>
+            <button id="minigameBtn" class="game-btn minigame-btn">🕹️ 小遊戲 (賺金幣!)</button>
+        </div>
+        
+        <!-- 🆕 金幣提示 - 灰底點擊顯示 -->
+        <div id="coinHint" class="coin-hint" onclick="toggleCoinHint()">
+            💰 金幣目前還沒用，因為我還沒做完 :)
+        </div>
+        
+        <div style="font-size: 1.1rem; opacity: 0.7; margin-top: 20px;">
+            🎮 用小遊戲賺金幣，等商店上線就能買超強裝備！
+        </div>
+    </div>
+
+    <!-- Roguelike 容器 -->
+    <div id="roguelikeContainer" class="game-container">
+        <button class="back-btn" onclick="showMainMenu()">← 返回主選單</button>
+        <iframe id="roguelikeFrame" src="Main.html" style="width:100%; height:100%; border:none;"></iframe>
+    </div>
+
+    <!-- 小遊戲容器 -->
+    <div id="minigameContainer" class="game-container">
+        <button class="back-btn" onclick="showMainMenu()">← 返回主選單</button>
+        <iframe id="minigameFrame" src="SMALL.html" style="width:100%; height:100%; border:none;"></iframe>
+    </div>
+
+    <script>
+        // 🆕 金幣提示點擊切換功能
+        function toggleCoinHint() {
+            const hint = document.getElementById('coinHint');
+            if (hint.classList.contains('revealed')) {
+                hint.classList.remove('revealed');
+                hint.innerHTML = '💰 金幣目前還沒用，因為我還沒做完 <span style="color:#f39c12;">😉</span>';
+            } else {
+                hint.classList.add('revealed');
+                hint.innerHTML = '💰 金幣即將上線！<br><span style="font-size:1.1rem;">小遊戲金幣將能在主遊戲商店買超強裝備！🔥</span>';
+            }
+        }
+
+        // ✅ 移除所有金幣顯示相關程式碼，但保留金幣同步功能
+        function getMainGameCoins() {
+            try {
+                const saveData = JSON.parse(localStorage.getItem('survivorsavev1') || '{}');
+                return saveData.gold || 0;
+            } catch(e) { return 0; }
+        }
+        
+        function setMainGameCoins(total) {
+            try {
+                const saveData = JSON.parse(localStorage.getItem('survivorsavev1') || '{}');
+                saveData.gold = total;
+                localStorage.setItem('survivorsavev1', JSON.stringify(saveData));
+            } catch(e) {}
+        }
+        
+        let unifiedCoins = getMainGameCoins();
+        
+        function addCoins(amount, source = '') {
+            unifiedCoins += amount;
+            setMainGameCoins(unifiedCoins); // ✅ 繼續同步到主遊戲存檔
+            
+            // 同步到iframe (背景運作，不顯示)
+            document.querySelectorAll('iframe').forEach(frame => {
+                try {
+                    frame.contentWindow.postMessage({
+                        type: 'syncCoins',
+                        coins: unifiedCoins
+                    }, '*');
+                } catch(e) {}
+            });
+        }
+
+        // 📡 接收小遊戲金幣 (背景運作)
+        window.addEventListener('message', (e) => {
+            if (e.data.type === 'addCoins') {
+                addCoins(e.data.amount, e.data.source);
+            }
+        });
+
+        // 🎮 遊戲切換功能
+        function showMainMenu() {
+            document.getElementById('mainMenu').style.display = 'flex';
+            document.getElementById('roguelikeContainer').classList.remove('active');
+            document.getElementById('minigameContainer').classList.remove('active');
+        }
+        function showRoguelike() {
+            document.getElementById('mainMenu').style.display = 'none';
+            document.getElementById('roguelikeContainer').classList.add('active');
+            document.getElementById('minigameContainer').classList.remove('active');
+        }
+        function showMinigame() {
+            document.getElementById('mainMenu').style.display = 'none';
+            document.getElementById('roguelikeContainer').classList.remove('active');
+            document.getElementById('minigameContainer').classList.add('active');
+        }
+
+        // 事件綁定
+        document.getElementById('roguelikeBtn').onclick = showRoguelike;
+        document.getElementById('minigameBtn').onclick = showMinigame;
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') showMainMenu(); });
+
+        // 初始化 (無顯示)
+        showMainMenu();
+    </script>
+</body>
+</html>
